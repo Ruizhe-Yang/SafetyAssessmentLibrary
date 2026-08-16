@@ -1,0 +1,9 @@
+GradeCriterionData
+GradeCriterionInput
+GradeCriterionOutput
+AssessmentEvidenceData
+AssessmentEvidenceInput
+AssessmentEvidenceOutput
+PartialAssessment
+PartialPreprocessor
+PartialTimeWindow
