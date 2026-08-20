@@ -1,5 +1,5 @@
 within SafetyAssessmentLibrary.Examples;
-package Assessments "Three independent, input-only Safety Assessment Assets"
+package Assessments "Independent, input-only Safety Assessment Assets"
   extends Modelica.Icons.Package;
-  annotation(Documentation(info="<html><p>Each public model is one independently stored A_j. It contains no behavioral system, accepts only read-only observation/reference/trigger inputs, exposes no output connector, and publishes one compact result record.</p></html>"));
+  annotation(Icon(coordinateSystem(extent={{-100,-100},{100,100}}), graphics={Rectangle(extent={{-100,100},{100,-100}}, lineColor={55,135,150}, fillColor={230,247,248}, fillPattern=FillPattern.Solid), Text(extent={{-88,28},{88,-28}}, textString="Assessment\nAssets", textColor={45,105,120})}), Documentation(info="<html><p>Each model is one independently stored A_j. It contains no behavioral plant and accepts only the read-only observations, references, or triggers required by that objective.</p></html>"));
 end Assessments;

@@ -1,7 +1,9 @@
+Support
 CriteriaTests
 TimeWindowTests
 InternalTests
 EvaluationTests
 ObjectiveTests
 SemanticTests
+OptionalConnectorTests
 ArchitectureTests

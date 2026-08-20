@@ -1,1 +1,4 @@
-GradeInterval
+GradedCriteria
+DynamicGradedCriteria
+Threshold
+BooleanCriterion

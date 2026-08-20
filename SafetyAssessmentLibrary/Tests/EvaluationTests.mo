@@ -1,98 +1,102 @@
 within SafetyAssessmentLibrary.Tests;
-package EvaluationTests "Public policy and hidden online-statistics regression tests"
+package EvaluationTests "End-to-end E semantics"
   extends Modelica.Icons.ExamplesPackage;
 
-  partial model PartialEvaluationCase
-    Real z;
-    Boolean activeSignal;
-    Criteria.GradeInterval intervalA(grade=Types.SafetyGrade.A,lower=-1,upper=1) annotation(Placement(transformation(extent={{-90,50},{-60,70}})));
-    Criteria.GradeInterval intervalB(grade=Types.SafetyGrade.B,lower=-2,upper=2) annotation(Placement(transformation(extent={{-90,20},{-60,40}})));
-    Criteria.GradeInterval intervalC(grade=Types.SafetyGrade.C,lower=-3,upper=3) annotation(Placement(transformation(extent={{-90,-10},{-60,10}})));
-    Criteria.GradeInterval intervalD(grade=Types.SafetyGrade.D,lower=-4,upper=4) annotation(Placement(transformation(extent={{-90,-40},{-60,-20}})));
-    replaceable Evaluation.AllInside evaluation(samplePeriod=0.01)
-      constrainedby Evaluation.PartialGrade4Evaluation
-      annotation(Placement(transformation(extent={{10,-50},{60,70}})));
-  equation
-    intervalA.z=z; intervalB.z=z; intervalC.z=z; intervalD.z=z;
-    evaluation.active=activeSignal;
-    evaluation.windowValid=true;
-    connect(intervalA.criterion,evaluation.criterionA) annotation(Line(points={{-58.5,60},{-20,60},{-20,52},{7.5,52}}, color={30,120,90}));
-    connect(intervalB.criterion,evaluation.criterionB) annotation(Line(points={{-58.5,30},{-20,30},{-20,28},{7.5,28}}, color={30,120,90}));
-    connect(intervalC.criterion,evaluation.criterionC) annotation(Line(points={{-58.5,0},{-20,0},{-20,4},{7.5,4}}, color={30,120,90}));
-    connect(intervalD.criterion,evaluation.criterionD) annotation(Line(points={{-58.5,-30},{-20,-30},{-20,-20},{7.5,-20}}, color={30,120,90}));
-    annotation(Documentation(info="<html><p>Shared four-interval fixture. The public Diagram exposes Criteria and one replaceable Evaluation; OnlineStatistics remains internal.</p></html>"));
-  end PartialEvaluationCase;
+  model AllInsideNoViolation
+    extends Support.StaticAllInside(signalValue=0);
+  equation when terminal() then assert(q.result.state==BaseClasses.AssessmentState.Resolved and q.result.grade==BaseClasses.SafetyGrade.A,"AllInside no-violation failed"); end when;
+    annotation(experiment(StopTime=2,Interval=0.01));
+  end AllInsideNoViolation;
 
-  model NoViolation
-    extends PartialEvaluationCase;
-  equation
-    z=0;
-    activeSignal=true;
-    when terminal() then assert(evaluation.evidence.pass[1] and evaluation.evidence.pass[4],"No-violation case must pass all levels"); end when;
-    annotation(experiment(StopTime=2), Documentation(info="<html><p>Zero outside duration passes AllInside at all grades.</p></html>"));
-  end NoViolation;
+  model TotalOutsideDuration
+    Modelica.Blocks.Sources.RealExpression x(y=if time>=1 and time<3 then 1.5 else 0);
+    Criteria.GradedCriteria c(lower={-1,-2,-3},upper={1,2,3}); TimeWindows.Always w;
+    Evaluation.MaxOutsideDuration e(maxAllowed={1,2,3},samplePeriod=0.01); Results.SafetyResult q;
+  equation connect(x.y,c.indicator); connect(c.criteria,e.criteria); connect(w.window,e.window); connect(e.evaluation,q.evaluation);
+    when terminal() then assert(q.result.grade==BaseClasses.SafetyGrade.B and abs(q.result.violationDuration)<1e-6,"Outer duration trace failed"); assert(abs(e.evaluation.outsideDuration[1]-2)<0.02,"A total outside duration failed"); end when;
+    annotation(experiment(StopTime=5,Interval=0.01));
+  end TotalOutsideDuration;
 
-  model ShortMultipleViolations
-    extends PartialEvaluationCase(redeclare Evaluation.MaxOutsideDuration evaluation(samplePeriod=0.01,maxAllowed={0.5,0.5,0.5,0.5}));
-  equation
-    z=if (time >= 0.5 and time < 0.7) or (time >= 1.2 and time < 1.4) then 1.5 else 0;
-    activeSignal=true;
-    when terminal() then
-      assert(evaluation.evidence.outsideCount[1] == 2,"Expected two stable violations");
-      assert(abs(evaluation.evidence.outsideDuration[1]-0.4) < 1e-5,"Expected 0.4 s total violation");
-      assert(evaluation.evidence.pass[1],"Total violation should remain under 0.5 s");
-    end when;
-    annotation(experiment(StopTime=2), Documentation(info="<html><p>Multiple excursions are counted stably and accumulated by MaxOutsideDuration.</p></html>"));
-  end ShortMultipleViolations;
+  model ConsecutiveOutside
+    Modelica.Blocks.Sources.RealExpression x(y=if (time>=1 and time<1.6) or (time>=3 and time<3.6) then 1.5 else 0);
+    Criteria.GradedCriteria c(lower={-1,-2,-3},upper={1,2,3}); TimeWindows.Always w;
+    Evaluation.MaxConsecutiveOutside e(maxAllowed={0.7,1,2},samplePeriod=0.01); Results.SafetyResult q;
+  equation connect(x.y,c.indicator); connect(c.criteria,e.criteria); connect(w.window,e.window); connect(e.evaluation,q.evaluation);
+    when terminal() then assert(q.result.grade==BaseClasses.SafetyGrade.A and abs(e.evaluation.longestOutsideDuration[1]-0.6)<0.02,"Consecutive duration failed"); end when;
+    annotation(experiment(StopTime=5,Interval=0.01));
+  end ConsecutiveOutside;
 
-  model ConsecutiveViolation
-    extends PartialEvaluationCase(redeclare Evaluation.MaxConsecutiveOutside evaluation(samplePeriod=0.01,maxAllowed={0.5,1.5,1.5,1.5}));
-  equation
-    z=if time >= 0.5 and time < 1.5 then 1.5 else 0;
-    activeSignal=true;
-    when terminal() then
-      assert(abs(evaluation.evidence.longestOutsideDuration[1]-1.0) < 1e-5,"Expected 1 s longest violation");
-      assert(not evaluation.evidence.pass[1] and evaluation.evidence.pass[2],"Expected A fail and B pass");
-    end when;
-    annotation(experiment(StopTime=2), Documentation(info="<html><p>MaxConsecutiveOutside distinguishes persistence from total exposure.</p></html>"));
-  end ConsecutiveViolation;
+  model InsideFraction
+    Modelica.Blocks.Sources.RealExpression x(y=if time>=2 and time<4 then 1.5 else 0);
+    Criteria.GradedCriteria c(lower={-1,-2,-3},upper={1,2,3}); TimeWindows.FixedWindow w(startTime=0,endTime=10);
+    Evaluation.MinInsideFraction e(minimumFraction={0.9,0.8,0.7},samplePeriod=0.01); Results.SafetyResult q;
+  equation connect(x.y,c.indicator); connect(c.criteria,e.criteria); connect(w.window,e.window); connect(e.evaluation,q.evaluation);
+    when terminal() then assert(q.result.grade==BaseClasses.SafetyGrade.B and abs(e.evaluation.insideFraction[1]-0.8)<0.02,"Inside fraction failed"); end when;
+    annotation(experiment(StopTime=10,Interval=0.01));
+  end InsideFraction;
 
-  model LastInstantViolation
-    extends PartialEvaluationCase(redeclare Evaluation.CheckAtEnd evaluation(samplePeriod=0.01));
-  equation
-    z=if time < 1.999 then 0 else 1.5;
-    activeSignal=true;
-    when terminal() then assert(not evaluation.evidence.pass[1] and evaluation.evidence.pass[2],"Terminal violation must be captured by CheckAtEnd"); end when;
-    annotation(experiment(StopTime=2), Documentation(info="<html><p>A violation immediately before terminal time is retained as last active membership.</p></html>"));
-  end LastInstantViolation;
+  model OutsideCount
+    Modelica.Blocks.Sources.RealExpression x(y=if (time>=1 and time<2) or (time>=3 and time<4) then 1.5 else 0);
+    Criteria.GradedCriteria c(lower={-1,-2,-3},upper={1,2,3}); TimeWindows.Always w;
+    Evaluation.MaxOutsideCount e(maxAllowed={1,1,2},samplePeriod=0.01); Results.SafetyResult q;
+  equation connect(x.y,c.indicator); connect(c.criteria,e.criteria); connect(w.window,e.window); connect(e.evaluation,q.evaluation);
+    when terminal() then assert(q.result.grade==BaseClasses.SafetyGrade.B and e.evaluation.outsideCount[1]==2,"Outside count failed"); end when;
+    annotation(experiment(StopTime=5,Interval=0.01));
+  end OutsideCount;
 
-  model EventIterationStability
-    extends PartialEvaluationCase;
-  equation
-    z=if time < 1 then 0 else 1.5;
-    activeSignal=time < 1;
-    when terminal() then
-      assert(evaluation.evidence.outsideCount[1] == 0,"Simultaneous window close and boundary crossing must not create a transient count");
-      assert(evaluation.evidence.firstOutsideTime[1] < 0,"Transient event-iteration state must not set first violation time");
-    end when;
-    annotation(experiment(StopTime=2), Documentation(info="<html><p>Stable event-state handling prevents a false violation when the window closes at the same event that z leaves A.</p></html>"));
-  end EventIterationStability;
+  model FirstRecovery
+    Modelica.Blocks.Sources.RealExpression x(y=if time>=1 and time<4 then 0.3 else 0);
+    Modelica.Blocks.Sources.BooleanExpression trigger(y=time>=1);
+    Criteria.GradedCriteria c(lower={-0.1,-0.2,-0.4},upper={0.1,0.2,0.4}); TimeWindows.TriggeredDuration w(duration=8);
+    Evaluation.FirstRecoveryWithin e(maxRecoveryDuration={2,4,8},samplePeriod=0.01); Results.SafetyResult q;
+  equation connect(x.y,c.indicator); connect(trigger.y,w.startTrigger); connect(c.criteria,e.criteria); connect(w.window,e.window); connect(e.evaluation,q.evaluation);
+    when terminal() then assert(q.result.grade==BaseClasses.SafetyGrade.B and abs(e.evaluation.recoveryDuration[1]-3)<0.02 and abs(e.evaluation.firstRecoveryTime[1]-4)<0.02,"First recovery failed"); end when;
+    annotation(experiment(StopTime=10,Interval=0.01));
+  end FirstRecovery;
 
-  model OnTriggerFreeze
-    extends PartialEvaluationCase(redeclare Evaluation.CheckAtEnd evaluation(samplePeriod=0.01,evaluationMode=Types.EvaluationMode.OnTrigger));
-    Modelica.Blocks.Sources.BooleanStep evaluate(startTime=1,startValue=false)
-      annotation(Placement(transformation(extent={{-40,-90},{-20,-70}})));
-  equation
-    z=if time < 0.5 or time > 1.5 then 0 else 1.5;
-    activeSignal=true;
-    connect(evaluate.y,evaluation.evaluateTrigger)
-      annotation(Line(points={{-19,-80},{52.5,-80},{52.5,-56}}, color={255,0,255}));
-    when terminal() then
-      assert(evaluation.evidence.evaluated,"OnTrigger evaluator must freeze at the trigger");
-      assert(not evaluation.evidence.pass[1] and evaluation.evidence.pass[2],"Frozen result must retain trigger-time membership despite later recovery");
-    end when;
-    annotation(experiment(StopTime=2), Documentation(info="<html><p>The first evaluation trigger freezes CheckAtEnd and later recovery cannot rewrite it.</p></html>"));
-  end OnTriggerFreeze;
+  model TriggeredResponse
+    Modelica.Blocks.Sources.RealExpression x(y=if time<2.5 then 4 else if time<3 then 2.5 else if time<4 then 1.5 else 0);
+    Modelica.Blocks.Sources.BooleanExpression trigger(y=time>=1);
+    Criteria.GradedCriteria c(lower={-1,-2,-3},upper={1,2,3}); TimeWindows.Always w;
+    Evaluation.TriggeredResponseWithin e(maxResponseDuration={2.5,2.5,2.5},samplePeriod=0.01); Results.SafetyResult q;
+  equation connect(x.y,c.indicator); connect(trigger.y,e.trigger); connect(c.criteria,e.criteria); connect(w.window,e.window); connect(e.evaluation,q.evaluation);
+    when terminal() then assert(q.result.grade==BaseClasses.SafetyGrade.B and abs(e.evaluation.responseDuration[1]-3)<0.02 and abs(e.evaluation.responseDuration[2]-2)<0.02,"Triggered response failed"); end when;
+    annotation(experiment(StopTime=5,Interval=0.01));
+  end TriggeredResponse;
 
-  annotation(Documentation(info="<html><p>Regression models cover no violation, repeated and consecutive excursions, terminal state, event iteration, and OnTrigger freezing through the simplified public Evaluation interface.</p></html>"));
+  model MissingResponseTrigger
+    Modelica.Blocks.Sources.Constant x(k=0); Modelica.Blocks.Sources.BooleanConstant trigger(k=false);
+    Criteria.GradedCriteria c(lower={-1,-2,-3},upper={1,2,3}); TimeWindows.Always w;
+    Evaluation.TriggeredResponseWithin e(samplePeriod=0.01); Results.SafetyResult q;
+  equation connect(x.y,c.indicator); connect(trigger.y,e.trigger); connect(c.criteria,e.criteria); connect(w.window,e.window); connect(e.evaluation,q.evaluation);
+    when terminal() then assert(q.result.state==BaseClasses.AssessmentState.Unresolved and q.result.invalidReason==BaseClasses.InvalidReason.MissingTrigger,"Missing response trigger shall be Unresolved"); end when;
+    annotation(experiment(StopTime=2,Interval=0.01));
+  end MissingResponseTrigger;
+
+  model SafeDwell
+    Modelica.Blocks.Sources.RealExpression x(y=if time<2 then 1.5 else 0);
+    Criteria.GradedCriteria c(lower={-1,-2,-3},upper={1,2,3}); TimeWindows.Always w;
+    Evaluation.MinConsecutiveInside e(minimumDuration={3,2,1},samplePeriod=0.01); Results.SafetyResult q;
+  equation connect(x.y,c.indicator); connect(c.criteria,e.criteria); connect(w.window,e.window); connect(e.evaluation,q.evaluation);
+    when terminal() then assert(q.result.grade==BaseClasses.SafetyGrade.A and e.evaluation.longestInsideDuration[1]>=3,"Safe dwell failed"); end when;
+    annotation(experiment(StopTime=6,Interval=0.01));
+  end SafeDwell;
+
+  model IntegratedViolation
+    Modelica.Blocks.Sources.RealExpression x(y=if time>=1 and time<3 then 2 else 0);
+    Criteria.GradedCriteria c(lower={-1,-2,-3},upper={1,2,3}); TimeWindows.Always w;
+    Evaluation.MaxIntegratedViolation e(maxAllowed={1,2,3},samplePeriod=0.01); Results.SafetyResult q;
+  equation connect(x.y,c.indicator); connect(c.criteria,e.criteria); connect(w.window,e.window); connect(e.evaluation,q.evaluation);
+    when terminal() then assert(q.result.grade==BaseClasses.SafetyGrade.B and abs(e.evaluation.integratedViolation[1]-2)<0.02,"Integrated violation failed"); end when;
+    annotation(experiment(StopTime=5,Interval=0.01));
+  end IntegratedViolation;
+
+  model CheckAtEnd
+    Modelica.Blocks.Sources.RealExpression x(y=if time<2 then 1.5 else 0);
+    Criteria.GradedCriteria c(lower={-1,-2,-3},upper={1,2,3}); TimeWindows.FixedWindow w(startTime=0,endTime=4);
+    Evaluation.CheckAtEnd e(samplePeriod=0.01); Results.SafetyResult q;
+  equation connect(x.y,c.indicator); connect(c.criteria,e.criteria); connect(w.window,e.window); connect(e.evaluation,q.evaluation);
+    when terminal() then assert(q.result.grade==BaseClasses.SafetyGrade.A,"CheckAtEnd failed"); end when;
+    annotation(experiment(StopTime=5,Interval=0.01));
+  end CheckAtEnd;
 end EvaluationTests;

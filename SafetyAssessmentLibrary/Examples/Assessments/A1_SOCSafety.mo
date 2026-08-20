@@ -1,72 +1,21 @@
 within SafetyAssessmentLibrary.Examples.Assessments;
-model A1_SOCSafety "White-box battery SOC safety assessment"
-  extends Interfaces.PartialAssessment(
-    final objectiveId="A1_SOC",
-    final description="Battery SOC safety objective",
-    final observationClass=Types.ObservationClass.Operational,
-    final observationId="batterySOC",
-    final observationDescription="Dimensionless usable battery state of charge",
-    final referenceMode=Types.ReferenceMode.None,
-    final topEventThreshold=Types.SafetyGrade.D);
-  Modelica.Blocks.Interfaces.RealInput SOC "Read-only state of charge"
-    annotation(Placement(transformation(extent={{-220,43},{-200,63}}),
-      iconTransformation(extent={{-120,-20},{-100,20}})));
-  Types.AssessmentResult result "Compact public result";
+model A1_SOCSafety "Battery SOC: direct range assessment"
+  extends BaseClasses.PartialAssessment(objectiveId="A1_SOC",objectiveName="Battery SOC safety",description="Battery SOC safety objective",inputSemantics="Read-only state of charge",units="1",observationClass=BaseClasses.ObservationClass.Operational,observationId="batterySOC",criterionSource="NISSA paper Section 3.3",referenceMode=BaseClasses.ReferenceMode.None);
+  Modelica.Blocks.Interfaces.RealInput SOC annotation(Placement(transformation(extent={{-320,50},{-300,70}}),iconTransformation(extent={{-110,-10},{-90,10}})));
 protected
-  Preprocessing.Identity preprocessing
-    annotation(Placement(transformation(extent={{-170,41},{-130,65}})), HideResult=true);
-  Criteria.GradeInterval intervalA(final grade=Types.SafetyGrade.A,lower=0.58,upper=0.85)
-    annotation(Placement(transformation(extent={{-80,38},{-20,60}})), HideResult=true);
-  Criteria.GradeInterval intervalB(final grade=Types.SafetyGrade.B,lower=0.39,upper=0.90)
-    annotation(Placement(transformation(extent={{-80,10},{-20,32}})), HideResult=true);
-  Criteria.GradeInterval intervalC(final grade=Types.SafetyGrade.C,lower=0.30,upper=0.95)
-    annotation(Placement(transformation(extent={{-80,-18},{-20,4}})), HideResult=true);
-  Criteria.GradeInterval intervalD(final grade=Types.SafetyGrade.D,lower=0.15,upper=1.00)
-    annotation(Placement(transformation(extent={{-80,-46},{-20,-24}})), HideResult=true);
-  TimeWindows.Always window
-    annotation(Placement(transformation(extent={{-20,-120},{20,-92}})), HideResult=true);
-  Evaluation.AllInside evaluation(samplePeriod=0.1)
-    annotation(Placement(transformation(extent={{55,-70},{135,70}})), HideResult=true);
-  Results.AssessmentResult resultEndpoint(
-    final objectiveId=objectiveId,final description=description,
-    final observationClass=observationClass,final observationId=observationId,
-    final observationDescription=observationDescription,final referenceMode=referenceMode,
-    final topEventThreshold=topEventThreshold)
-    annotation(Placement(transformation(extent={{155,-32},{195,32}})), HideResult=true);
+  Preprocessing.Identity p annotation(Placement(transformation(extent={{-260,40},{-220,80}})));
+  Criteria.GradedCriteria c(lower={0.58,0.39,0.30},upper={0.85,0.90,0.95}) annotation(Placement(transformation(extent={{-180,30},{-120,90}})));
+  TimeWindows.Always w annotation(Placement(transformation(extent={{-180,-100},{-120,-60}})));
+  Evaluation.AllInside e(samplePeriod=0.1) annotation(Placement(transformation(extent={{-60,10},{40,90}})));
+  Results.SafetyResult q(acceptableGrade=BaseClasses.SafetyGrade.C,topEventThreshold=BaseClasses.SafetyGrade.D) annotation(Placement(transformation(extent={{80,10},{180,90}})));
+  Results.ConsoleReporter reporter(objectiveId=objectiveId,description=description,referenceMode=referenceMode) annotation(Placement(transformation(extent={{210,-70},{270,-30}})));
 equation
-  connect(SOC,preprocessing.xFault[1])
-    annotation(Line(points={{-210,53},{-186,53},{-186,57.8},{-172,57.8}}, color={0,0,127}));
-  connect(preprocessing.z,intervalA.z)
-    annotation(Line(points={{-128,53},{-106,53},{-106,49},{-83,49}}, color={0,0,127}));
-  connect(preprocessing.z,intervalB.z)
-    annotation(Line(points={{-128,53},{-106,53},{-106,21},{-83,21}}, color={0,0,127}));
-  connect(preprocessing.z,intervalC.z)
-    annotation(Line(points={{-128,53},{-106,53},{-106,-7},{-83,-7}}, color={0,0,127}));
-  connect(preprocessing.z,intervalD.z)
-    annotation(Line(points={{-128,53},{-106,53},{-106,-35},{-83,-35}}, color={0,0,127}));
-  connect(intervalA.criterion,evaluation.criterionA)
-    annotation(Line(points={{-17,49},{18,49},{18,49},{51,49}}, color={30,120,90}, thickness=0.5));
-  connect(intervalB.criterion,evaluation.criterionB)
-    annotation(Line(points={{-17,21},{18,21},{18,21},{51,21}}, color={30,120,90}, thickness=0.5));
-  connect(intervalC.criterion,evaluation.criterionC)
-    annotation(Line(points={{-17,-7},{18,-7},{18,-7},{51,-7}}, color={30,120,90}, thickness=0.5));
-  connect(intervalD.criterion,evaluation.criterionD)
-    annotation(Line(points={{-17,-35},{18,-35},{18,-35},{51,-35}}, color={30,120,90}, thickness=0.5));
-  connect(window.active,evaluation.active)
-    annotation(Line(points={{22,-106},{38,-106},{38,-77},{71,-77}}, color={255,0,255}));
-  connect(window.configurationValid,evaluation.windowValid)
-    annotation(Line(points={{22,-114.4},{46,-114.4},{46,-77},{87,-77}}, color={255,0,255}));
-  connect(evaluation.evidence,resultEndpoint.evidence)
-    annotation(Line(points={{139,0},{153,0}}, color={40,100,170}, thickness=0.5));
-  result=resultEndpoint.result;
-  annotation(
-    Icon(graphics={Text(extent={{-82,66},{82,30}}, textString="A1  SOC", textColor={25,90,135}, textStyle={TextStyle.Bold}), Text(extent={{-78,12},{78,-18}}, textString="AllInside", textColor={70,70,70})}),
-    Diagram(coordinateSystem(extent={{-200,-140},{200,140}}), graphics={
-      Text(extent={{-186,126},{-118,114}}, textString="PREPROCESS", textColor={30,80,130}, textStyle={TextStyle.Bold}),
-      Text(extent={{-84,126},{-16,114}}, textString="A/B/C/D CRITERIA", textColor={30,120,90}, textStyle={TextStyle.Bold}),
-      Text(extent={{52,126},{138,114}}, textString="EVALUATION", textColor={40,100,170}, textStyle={TextStyle.Bold}),
-      Text(extent={{150,126},{200,114}}, textString="RESULT", textColor={25,90,135}, textStyle={TextStyle.Bold}),
-      Text(extent={{-24,-126},{24,-138}}, textString="TIME WINDOW", textColor={90,70,140}, textStyle={TextStyle.Bold})}),
-    experiment(StopTime=200, Interval=0.1),
-    Documentation(info="<html><p><b>Purpose:</b> demonstrate the standard single-observation white-box assessment.</p><p><b>Input:</b> SOC. <b>Result:</b> inspect <code>result</code>; there is no result output connector.</p><p><b>Graphical workflow:</b> Identity feeds four independently editable GradeInterval blocks. Always gates AllInside, whose single evidence line terminates at Result.</p><p><b>Parameters:</b> double-click intervalA/B/C/D to edit each range, or replace AllInside graphically with another Evaluation policy.</p><p><b>Expected scenario behavior:</b> SOC starts inside Grade A and later enters Grade B; the full-window result is B.</p><p><b>Limitation:</b> thresholds are illustrative and sampled extrema use 0.1 s.</p></html>"));
+  connect(SOC,p.xFault[1]) annotation(Line(points={{-310,60},{-270,60},{-270,68},{-260,68}},color={0,0,127}));
+  connect(p.z,c.indicator) annotation(Line(points={{-220,60},{-180,60}},color={0,0,127}));
+  connect(c.criteria,e.criteria) annotation(Line(points={{-120,60},{-80,60},{-80,66},{-60,66}},color={190,105,35},thickness=0.5));
+  connect(w.window,e.window) annotation(Line(points={{-120,-80},{-10,-80},{-10,10}},color={105,75,155},thickness=0.5));
+  connect(e.evaluation,q.evaluation) annotation(Line(points={{40,50},{80,50}},color={55,135,85},thickness=0.5));
+  connect(q.result,result) annotation(Line(points={{180,50},{250,50},{250,0},{310,0}},color={160,75,65},thickness=0.5));
+  connect(result,reporter.result) annotation(Line(points={{310,0},{290,0},{290,-50},{210,-50}},color={160,75,65},thickness=0.5));
+  annotation(Icon(graphics={Text(extent={{-82,64},{82,28}},textString="A1 SOC",textColor={70,105,130},textStyle={TextStyle.Bold}),Text(extent={{-78,8},{78,-22}},textString="ALL IN",textColor={70,70,70})}),Diagram(coordinateSystem(extent={{-300,-130},{300,130}}),graphics={Text(extent={{-280,122},{-210,108}},textString="P",textColor={45,105,165}),Text(extent={{-180,122},{-110,108}},textString="C",textColor={190,105,35}),Text(extent={{-180,-108},{-110,-122}},textString="W",textColor={105,75,155}),Text(extent={{-50,122},{40,108}},textString="E",textColor={55,135,85}),Text(extent={{90,122},{180,108}},textString="Q",textColor={160,75,65})}),experiment(StopTime=200,Interval=0.1),Documentation(info="<html><p>Canonical A=&lt;P,C,W,E,Q,Des&gt; composition for one SOC trajectory. The Diagram exposes every semantic stage and the formal structured result connector at the right boundary.</p></html>"));
 end A1_SOCSafety;

@@ -1,0 +1,36 @@
+within SafetyAssessmentLibrary.Examples.Scenarios;
+model S_AdvancedAssessmentExamples "One simulation exercising dynamic, count, recovery, exposure, and Boolean-top assets"
+  Modelica.Blocks.Sources.RealExpression measured(y=1.2*sin(0.4*time)) annotation(Placement(transformation(extent={{-180,90},{-150,100}})));
+  Modelica.Blocks.Sources.RealExpression lowerA(y=-0.5+0.1*sin(0.15*time)) annotation(Placement(transformation(extent={{-180,80},{-150,90}})));
+  Modelica.Blocks.Sources.RealExpression upperA(y=0.5+0.1*sin(0.15*time)) annotation(Placement(transformation(extent={{-180,70},{-150,80}})));
+  Modelica.Blocks.Sources.RealExpression lowerB(y=-1+0.1*sin(0.15*time)) annotation(Placement(transformation(extent={{-180,60},{-150,70}})));
+  Modelica.Blocks.Sources.RealExpression upperB(y=1+0.1*sin(0.15*time)) annotation(Placement(transformation(extent={{-180,50},{-150,60}})));
+  Modelica.Blocks.Sources.RealExpression lowerC(y=-1.5+0.1*sin(0.15*time)) annotation(Placement(transformation(extent={{-180,40},{-150,50}})));
+  Modelica.Blocks.Sources.RealExpression upperC(y=1.5+0.1*sin(0.15*time)) annotation(Placement(transformation(extent={{-180,30},{-150,40}})));
+  Modelica.Blocks.Sources.RealExpression countSignal(y=if (time>=2 and time<3) or (time>=6 and time<7) or (time>=10 and time<11) then 2 else 0) annotation(Placement(transformation(extent={{-180,10},{-150,20}})));
+  Modelica.Blocks.Sources.RealExpression recoverySignal(y=if time<5 then 0 else 0.6*exp(-(time-5)/1.5)) annotation(Placement(transformation(extent={{-180,-15},{-150,-5}})));
+  Modelica.Blocks.Sources.BooleanExpression recoveryTrigger(y=time>=5) annotation(Placement(transformation(extent={{-180,-30},{-150,-20}})));
+  Modelica.Blocks.Sources.RealExpression exposureSignal(y=if time>=4 and time<6 then 4 else if time>=10 and time<11 then 3.5 else 0.5) annotation(Placement(transformation(extent={{-180,-50},{-150,-40}})));
+  Modelica.Blocks.Sources.RealExpression nominalSignal(y=0) annotation(Placement(transformation(extent={{-180,-75},{-150,-65}})));
+  Modelica.Blocks.Sources.BooleanExpression hazardSignal(y=time>=12) annotation(Placement(transformation(extent={{-180,-90},{-150,-80}})));
+  Assessments.A4_DynamicLimitSafety A4 annotation(Placement(transformation(extent={{-60,45},{-10,95}})));
+  Assessments.A5_EventCountSafety A5 annotation(Placement(transformation(extent={{40,55},{90,95}})));
+  Assessments.A6_ResponseRecoverySafety A6 annotation(Placement(transformation(extent={{40,5},{90,45}})));
+  Assessments.A7_IntegratedExposureSafety A7 annotation(Placement(transformation(extent={{40,-45},{90,-5}})));
+  Assessments.A8_BooleanTopEventSafety A8 annotation(Placement(transformation(extent={{40,-95},{90,-55}})));
+equation
+  connect(measured.y,A4.measured) annotation(Line(points={{-148.5,95},{-90,95},{-90,90},{-60,90}}, color={0,0,127}));
+  connect(lowerA.y,A4.lowerA) annotation(Line(points={{-148.5,85},{-95,85},{-95,83.75},{-60,83.75}}, color={0,0,127}));
+  connect(upperA.y,A4.upperA) annotation(Line(points={{-148.5,75},{-100,75},{-100,77.5},{-60,77.5}}, color={0,0,127}));
+  connect(lowerB.y,A4.lowerB) annotation(Line(points={{-148.5,65},{-105,65},{-105,71.25},{-60,71.25}}, color={0,0,127}));
+  connect(upperB.y,A4.upperB) annotation(Line(points={{-148.5,55},{-110,55},{-110,65},{-60,65}}, color={0,0,127}));
+  connect(lowerC.y,A4.lowerC) annotation(Line(points={{-148.5,45},{-115,45},{-115,58.75},{-60,58.75}}, color={0,0,127}));
+  connect(upperC.y,A4.upperC) annotation(Line(points={{-148.5,35},{-120,35},{-120,52.5},{-60,52.5}}, color={0,0,127}));
+  connect(countSignal.y,A5.value) annotation(Line(points={{-148.5,15},{10,15},{10,75},{40,75}}, color={0,0,127}));
+  connect(recoverySignal.y,A6.responseError) annotation(Line(points={{-148.5,-10},{5,-10},{5,31},{40,31}}, color={0,0,127}));
+  connect(recoveryTrigger.y,A6.trigger) annotation(Line(points={{-148.5,-25},{15,-25},{15,15},{40,15}}, color={255,0,255}));
+  connect(exposureSignal.y,A7.value) annotation(Line(points={{-148.5,-45},{10,-45},{10,-25},{40,-25}}, color={0,0,127}));
+  connect(nominalSignal.y,A8.value) annotation(Line(points={{-148.5,-70},{5,-70},{5,-67},{40,-67}}, color={0,0,127}));
+  connect(hazardSignal.y,A8.independentHazard) annotation(Line(points={{-148.5,-85},{15,-85},{15,-83},{40,-83}}, color={255,0,255}));
+  annotation(Diagram(coordinateSystem(extent={{-190,-110},{120,110}}), graphics={Rectangle(extent={{-186,104},{-138,-100}}, lineColor={160,170,180}, linePattern=LinePattern.Dash), Rectangle(extent={{-70,104},{102,-104}}, lineColor={160,170,180}, linePattern=LinePattern.Dash), Text(extent={{-184,110},{-138,102}}, textString="TRAJECTORIES", textColor={70,70,70}, textStyle={TextStyle.Bold}), Text(extent={{-68,110},{102,102}}, textString="INDEPENDENT SAFETY ASSESSMENT ASSETS", textColor={70,70,70}, textStyle={TextStyle.Bold})}), Icon(coordinateSystem(extent={{-100,-100},{100,100}}), graphics={Rectangle(extent={{-100,100},{100,-100}}, lineColor={55,135,150}, fillColor={230,247,248}, fillPattern=FillPattern.Solid), Text(extent={{-86,34},{86,-4}}, textString="S ADV", textColor={45,110,125}, textStyle={TextStyle.Bold}), Text(extent={{-90,-16},{90,-48}}, textString="A4 ... A8", textColor={70,90,95})}), experiment(StopTime=30,Interval=0.05,Tolerance=1e-6), Documentation(info="<html><p><b>Purpose:</b> simulate representative v2.0.0 assessment capabilities together.</p><p><b>Assets:</b> A4 dynamic intervals, A5 violation counts, A6 recovery plus dwell, A7 integrated exposure, and A8 Boolean top event independent of grade.</p><p><b>Read-only composition:</b> every line terminates at an assessment input; no assessment output is connected back to a trajectory source.</p></html>"));
+end S_AdvancedAssessmentExamples;

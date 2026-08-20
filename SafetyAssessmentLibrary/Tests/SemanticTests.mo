@@ -1,116 +1,75 @@
 within SafetyAssessmentLibrary.Tests;
-package SemanticTests "Evidence, lifecycle, threshold, and transient/final semantics"
+package SemanticTests "Coverage, lifecycle, verdict, and Top Event tests"
   extends Modelica.Icons.ExamplesPackage;
 
-  partial model PartialSemanticPipeline
-    parameter Real lower[4]={-1,-2,-3,-4};
-    parameter Real upper[4]={1,2,3,4};
-    parameter Types.SafetyGrade threshold=Types.SafetyGrade.D;
-    Real z;
-    Boolean activeSignal;
-    Boolean windowValidSignal;
-    Criteria.GradeInterval intervalA(grade=Types.SafetyGrade.A,lower=lower[1],upper=upper[1]) annotation(Placement(transformation(extent={{-90,50},{-60,70}})));
-    Criteria.GradeInterval intervalB(grade=Types.SafetyGrade.B,lower=lower[2],upper=upper[2]) annotation(Placement(transformation(extent={{-90,20},{-60,40}})));
-    Criteria.GradeInterval intervalC(grade=Types.SafetyGrade.C,lower=lower[3],upper=upper[3]) annotation(Placement(transformation(extent={{-90,-10},{-60,10}})));
-    Criteria.GradeInterval intervalD(grade=Types.SafetyGrade.D,lower=lower[4],upper=upper[4]) annotation(Placement(transformation(extent={{-90,-40},{-60,-20}})));
-    replaceable Evaluation.AllInside evaluation(samplePeriod=0.01)
-      constrainedby Evaluation.PartialGrade4Evaluation annotation(Placement(transformation(extent={{0,-50},{50,70}})));
-    Results.AssessmentResult resultEndpoint(topEventThreshold=threshold,printResult=false)
-      annotation(Placement(transformation(extent={{70,-15},{100,15}})));
-  equation
-    intervalA.z=z; intervalB.z=z; intervalC.z=z; intervalD.z=z;
-    evaluation.active=activeSignal;
-    evaluation.windowValid=windowValidSignal;
-    connect(intervalA.criterion,evaluation.criterionA) annotation(Line(points={{-58.5,60},{-20,60},{-20,52},{-2.5,52}}, color={30,120,90}));
-    connect(intervalB.criterion,evaluation.criterionB) annotation(Line(points={{-58.5,30},{-20,30},{-20,28},{-2.5,28}}, color={30,120,90}));
-    connect(intervalC.criterion,evaluation.criterionC) annotation(Line(points={{-58.5,0},{-20,0},{-20,4},{-2.5,4}}, color={30,120,90}));
-    connect(intervalD.criterion,evaluation.criterionD) annotation(Line(points={{-58.5,-30},{-20,-30},{-20,-20},{-2.5,-20}}, color={30,120,90}));
-    connect(evaluation.evidence,resultEndpoint.evidence) annotation(Line(points={{52.5,10},{68.5,10},{68.5,0}}, color={40,100,170}));
-  end PartialSemanticPipeline;
+  model SufficientCoverage
+    extends Support.ValidityFixture(minimumCoverage=0.8);
+  equation when terminal() then assert(q.result.state==BaseClasses.AssessmentState.Resolved and abs(q.result.dataCoverage-0.8)<0.02 and abs(q.result.invalidDataDuration-2)<0.02,"Sufficient coverage failed"); end when;
+    annotation(experiment(StopTime=10,Interval=0.01));
+  end SufficientCoverage;
 
-  model NoEvidenceTest "A never-active legal objective is Unresolved"
-    extends PartialSemanticPipeline;
-    TimeWindows.FixedWindow window(startTime=10,endTime=20);
-  equation
-    z=0;
-    activeSignal=window.active;
-    windowValidSignal=window.configurationValid;
-    when terminal() then
-      assert(resultEndpoint.result.state == Types.AssessmentState.Unresolved,"No evidence must be Unresolved");
-      assert(resultEndpoint.result.displayCode == 0,"No evidence must not produce a grade display code");
-    end when;
-    annotation(experiment(StopTime=1), Documentation(info="<html><p>A legal but never-active assessment cannot vacuously resolve A.</p></html>"));
-  end NoEvidenceTest;
+  model InsufficientCoverage
+    extends Support.ValidityFixture(minimumCoverage=0.81);
+  equation when terminal() then assert(q.result.state==BaseClasses.AssessmentState.Unresolved and q.result.invalidReason==BaseClasses.InvalidReason.InsufficientDataCoverage,"Insufficient coverage shall be Unresolved"); end when;
+    annotation(experiment(StopTime=10,Interval=0.01));
+  end InsufficientCoverage;
 
-  model MissingReferenceTest "Unavailable required reference is Unresolved"
-    extends PartialSemanticPipeline(redeclare Evaluation.AllInside evaluation(samplePeriod=0.01,useDataValidityInput=true));
-    Modelica.Blocks.Sources.BooleanConstant available(k=false) annotation(Placement(transformation(extent={{-30,-90},{-10,-70}})));
-  equation
-    z=0;
-    activeSignal=true;
-    windowValidSignal=true;
-    connect(available.y,evaluation.dataValid) annotation(Line(points={{-9,-80},{32.5,-80},{32.5,-56}}, color={255,0,255}));
-    when terminal() then
-      assert(resultEndpoint.evidence.configurationValid,"Missing data must not invalidate legal configuration");
-      assert(resultEndpoint.result.state == Types.AssessmentState.Unresolved,"Missing required reference must be Unresolved");
-    end when;
-    annotation(experiment(StopTime=1), Documentation(info="<html><p>dataValid=false produces Unresolved rather than Invalid.</p></html>"));
-  end MissingReferenceTest;
+  model ZeroValidCoverage
+    Modelica.Blocks.Sources.Constant x(k=0); Modelica.Blocks.Sources.BooleanConstant valid(k=false);
+    Criteria.GradedCriteria c(lower={-1,-2,-3},upper={1,2,3}); TimeWindows.FixedWindow w(startTime=0,endTime=2);
+    Evaluation.AllInside e(useDataValidityInput=true,minimumDataCoverage=0.1,samplePeriod=0.01); Results.SafetyResult q;
+  equation connect(x.y,c.indicator); connect(valid.y,e.dataValid); connect(c.criteria,e.criteria); connect(w.window,e.window); connect(e.evaluation,q.evaluation);
+    when terminal() then assert(q.result.state==BaseClasses.AssessmentState.Unresolved and q.result.validDataDuration<0.01,"Zero valid coverage failed"); end when;
+    annotation(experiment(StopTime=2,Interval=0.01));
+  end ZeroValidCoverage;
 
-  model InvalidEnvelopeTest "Illegal nesting is Invalid"
-    extends PartialSemanticPipeline(lower={0,-1,-2,-3},upper={1,0.5,2,3});
-  equation
-    z=0;
-    activeSignal=true;
-    windowValidSignal=true;
-    when terminal() then assert(resultEndpoint.result.state == Types.AssessmentState.Invalid and resultEndpoint.result.displayCode == -1,"Nonnested criteria must be Invalid"); end when;
-    annotation(experiment(StopTime=1), Documentation(info="<html><p>I_A is not contained by I_B; Result reports Invalid, not D.</p></html>"));
-  end InvalidEnvelopeTest;
+  model InvalidAtSimulationEnd
+    Modelica.Blocks.Sources.Constant x(k=0); Modelica.Blocks.Sources.BooleanExpression valid(y=time<9);
+    Criteria.GradedCriteria c(lower={-1,-2,-3},upper={1,2,3}); TimeWindows.FixedWindow w(startTime=0,endTime=10);
+    Evaluation.AllInside e(useDataValidityInput=true,minimumDataCoverage=0.9,samplePeriod=0.01); Results.SafetyResult q;
+  equation connect(x.y,c.indicator); connect(valid.y,e.dataValid); connect(c.criteria,e.criteria); connect(w.window,e.window); connect(e.evaluation,q.evaluation);
+    when terminal() then assert(q.result.state==BaseClasses.AssessmentState.Resolved and abs(q.result.dataCoverage-0.9)<0.02,"Final dataValid=false must be decided by coverage, not final sample"); end when;
+    annotation(experiment(StopTime=10,Interval=0.01));
+  end InvalidAtSimulationEnd;
 
-  model OutsideDTest "A valid trajectory outside D resolves D plus outerViolation"
-    extends PartialSemanticPipeline;
-  equation
-    z=10;
-    activeSignal=true;
-    windowValidSignal=true;
-    when terminal() then
-      assert(resultEndpoint.result.state == Types.AssessmentState.Resolved,"Outside D remains a resolved consequence");
-      assert(resultEndpoint.result.grade == Types.SafetyGrade.D and resultEndpoint.result.outerViolation,"Expected Resolved+D+outerViolation");
-    end when;
-    annotation(experiment(StopTime=1), Documentation(info="<html><p>Observed severe behavior is not an invalid configuration.</p></html>"));
-  end OutsideDTest;
+  model EvaluationTriggerEnabled
+    Modelica.Blocks.Sources.RealExpression x(y=if time<1.5 then 0 else 4); Modelica.Blocks.Sources.BooleanExpression evaluateNow(y=time>=1);
+    Criteria.GradedCriteria c(lower={-1,-2,-3},upper={1,2,3}); TimeWindows.Always w;
+    Evaluation.AllInside e(evaluationMode=BaseClasses.EvaluationMode.OnTrigger,samplePeriod=0.01); Results.SafetyResult q;
+  equation connect(x.y,c.indicator); connect(c.criteria,e.criteria); connect(w.window,e.window); connect(evaluateNow.y,e.evaluateTrigger); connect(e.evaluation,q.evaluation);
+    when terminal() then assert(q.result.state==BaseClasses.AssessmentState.Resolved and q.result.grade==BaseClasses.SafetyGrade.A and q.result.violationDuration<0.01,"OnTrigger freeze/connector failed"); end when;
+    annotation(experiment(StopTime=2,Interval=0.01));
+  end EvaluationTriggerEnabled;
 
-  model InstantaneousVsFinalGradeTest "A tolerated D-region transient can finish A"
-    extends PartialSemanticPipeline(redeclare Evaluation.MaxOutsideDuration evaluation(samplePeriod=0.01,maxAllowed={0.3,0.3,0.3,0.3}));
-    discrete Boolean sawInstantaneousD(start=false,fixed=true);
-  equation
-    z=if time >= 1 and time < 1.2 then 3.5 else 0;
-    activeSignal=true;
-    windowValidSignal=true;
-    when not intervalC.criterion.inside and intervalD.criterion.inside then
-      sawInstantaneousD=true;
-    end when;
-    when terminal() then
-      assert(sawInstantaneousD,"The transient must enter the D region");
-      assert(resultEndpoint.result.state == Types.AssessmentState.Resolved and resultEndpoint.result.grade == Types.SafetyGrade.A,"Allowed duration must keep final grade A");
-    end when;
-    annotation(experiment(StopTime=2), Documentation(info="<html><p>Instantaneous interval region and final temporal grade remain separate.</p></html>"));
-  end InstantaneousVsFinalGradeTest;
+  model DynamicInvalidOutsideWindow
+    Modelica.Blocks.Sources.RealExpression x(y=0),la(y=if time<1 then -2.5 else -1),ua(y=1),lb(y=-2),ub(y=2),lc(y=-3),uc(y=3);
+    Criteria.DynamicGradedCriteria c; TimeWindows.FixedWindow w(startTime=1,endTime=2); Evaluation.AllInside e(samplePeriod=0.01); Results.SafetyResult q;
+  equation connect(x.y,c.value); connect(la.y,c.lowerA); connect(ua.y,c.upperA); connect(lb.y,c.lowerB); connect(ub.y,c.upperB); connect(lc.y,c.lowerC); connect(uc.y,c.upperC); connect(c.criteria,e.criteria); connect(w.window,e.window); connect(e.evaluation,q.evaluation);
+    when terminal() then assert(q.result.state==BaseClasses.AssessmentState.Resolved,"Dynamic invalidity outside W shall not invalidate A"); end when;
+    annotation(experiment(StopTime=2,Interval=0.01));
+  end DynamicInvalidOutsideWindow;
 
-  model CriticalEvidenceTest "Threshold-C evidence selects Grade-C timing"
-    extends PartialSemanticPipeline(threshold=Types.SafetyGrade.C,
-      redeclare Evaluation.MaxOutsideDuration evaluation(samplePeriod=0.01,maxAllowed={2,2,2,2}));
-  equation
-    z=if time >= 0.5 and time < 0.8 then 1.5 elseif time >= 1 and time < 2 then 3.5 else 0;
-    activeSignal=true;
-    windowValidSignal=true;
-    when terminal() then
-      assert(abs(resultEndpoint.result.firstCriticalTime-1.0) < 1e-6,"Critical time must select C evidence");
-      assert(abs(resultEndpoint.result.criticalDuration-1.0) < 1e-6,"Critical duration must select C evidence");
-      assert(not resultEndpoint.result.outerViolation,"D interval is never left");
-    end when;
-    annotation(experiment(StopTime=3), Documentation(info="<html><p>Critical fields select the configured topEventThreshold rather than fixed A or D evidence.</p></html>"));
-  end CriticalEvidenceTest;
+  model DynamicInvalidInsideWindow
+    Modelica.Blocks.Sources.RealExpression x(y=0),la(y=if time<1.5 then -1 else -2.5),ua(y=1),lb(y=-2),ub(y=2),lc(y=-3),uc(y=3);
+    Criteria.DynamicGradedCriteria c; TimeWindows.FixedWindow w(startTime=1,endTime=2); Evaluation.AllInside e(samplePeriod=0.01); Results.SafetyResult q;
+  equation connect(x.y,c.value); connect(la.y,c.lowerA); connect(ua.y,c.upperA); connect(lb.y,c.lowerB); connect(ub.y,c.upperB); connect(lc.y,c.lowerC); connect(uc.y,c.upperC); connect(c.criteria,e.criteria); connect(w.window,e.window); connect(e.evaluation,q.evaluation);
+    when terminal() then assert(q.result.state==BaseClasses.AssessmentState.Invalid and q.result.invalidReason==BaseClasses.InvalidReason.DynamicGradeNesting,"Dynamic invalidity inside W not latched"); end when;
+    annotation(experiment(StopTime=2,Interval=0.01));
+  end DynamicInvalidInsideWindow;
 
-  annotation(Documentation(info="<html><p>These tests lock no-vacuous-result, unavailable-data, Invalid/D separation, transient/final separation, and configurable critical-evidence semantics.</p></html>"));
+  model GradeThresholdTopEvent
+    extends Support.StaticAllInside(signalValue=2.5);
+    Results.SafetyResult qC(topEventThreshold=BaseClasses.SafetyGrade.C);
+  equation connect(e.evaluation,qC.evaluation);
+    when terminal() then assert(qC.result.grade==BaseClasses.SafetyGrade.C and qC.result.topEvent,"C threshold Top Event failed"); end when;
+    annotation(experiment(StopTime=1));
+  end GradeThresholdTopEvent;
+
+  model IndependentTopEvent
+    Modelica.Blocks.Sources.Constant x(k=0); Modelica.Blocks.Sources.BooleanConstant hazard(k=true);
+    Criteria.GradedCriteria c(lower={-1,-2,-3},upper={1,2,3}); TimeWindows.Always w; Evaluation.AllInside e; Results.SafetyResult q(useGradeTopEvent=false);
+  equation connect(x.y,c.indicator); connect(c.criteria,e.criteria); connect(w.window,e.window); connect(e.evaluation,q.evaluation); connect(hazard.y,q.independentTopEvent);
+    when terminal() then assert(q.result.grade==BaseClasses.SafetyGrade.A and q.result.topEvent,"Independent Top Event failed"); end when;
+    annotation(experiment(StopTime=1));
+  end IndependentTopEvent;
 end SemanticTests;

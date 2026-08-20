@@ -1,0 +1,10 @@
+AllInside
+CheckAtEnd
+MaxOutsideDuration
+MaxConsecutiveOutside
+MinInsideFraction
+MaxOutsideCount
+FirstRecoveryWithin
+TriggeredResponseWithin
+MinConsecutiveInside
+MaxIntegratedViolation

@@ -1,3 +1,8 @@
 A1_SOCSafety
 A2_BusDeviation
 A3_AttitudeRateSafety
+A4_DynamicLimitSafety
+A5_EventCountSafety
+A6_ResponseRecoverySafety
+A7_IntegratedExposureSafety
+A8_BooleanTopEventSafety

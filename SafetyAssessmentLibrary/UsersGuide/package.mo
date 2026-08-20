@@ -1,56 +1,56 @@
 within SafetyAssessmentLibrary;
-package UsersGuide "User guide"
+package UsersGuide "Safety Assessment Asset user guide"
   extends Modelica.Icons.Information;
 
-  class Overview "Purpose and scope"
+  class Overview "Purpose, scope, and independence"
     extends Modelica.Icons.Information;
-    annotation(Documentation(info="<html><h4>Purpose</h4><p>SafetyAssessmentLibrary lets a safety analyst build one safety objective as one independent, input-only Modelica assessment A. The normal graphical workflow is Observation -&gt; Preprocessing -&gt; four A/B/C/D Criteria -&gt; Evaluation -&gt; Result, with a separate TimeWindow connected to Evaluation.</p><h4>Public boundary</h4><p>A accepts read-only signals, exposes no physical or command output connector, and publishes one compact Types.AssessmentResult record.</p><h4>Runtime boundary</h4><p>The library depends only on Modelica Standard Library 4.0.0.</p><h4>Design influences</h4><p>Executable-property blocks and event-aware monitoring from Modelica_Requirements, condition/time separation from FORM-L/ReqSysPro, and behavior/observer/binding separation from CRML informed the design. SafetyAssessmentLibrary is independently implemented and has no runtime dependency on those projects.</p></html>"));
+    annotation(Documentation(info="<html><p>SafetyAssessmentLibrary builds executable, read-only evidence for finite-horizon, simulation-observable NISSA safety objectives. Each asset consumes Scenario-bound trajectories and emits one structured result. It is not a general requirements language.</p><p>Runtime dependency: Modelica Standard Library 4.0.0 only. Ideas from Modelica_Requirements, FORM-L / ReqSysPro, and CRML informed executable monitoring, condition/time separation, and binding, but this is an independent library with no runtime dependency on those projects.</p></html>"));
   end Overview;
 
-  class Architecture "M/M_F, binding, A, and Result responsibilities"
+  class Architecture "A = P + C + W + E + Q + Des"
     extends Modelica.Icons.Information;
-    annotation(Documentation(info="<html><p><b>M/M_F -&gt; Observation Binding -&gt; A -&gt; AssessmentResult.</b></p><ul><li>M is nominal behavior.</li><li>M_F reuses behavior and introduces fault F.</li><li>The Scenario owns variable-path bindings.</li><li>Each A is a separate .mo file containing only inputs and visible assessment blocks.</li><li>Result is the compact conclusion stored by A.</li></ul><p>Inside A, only five public concepts appear: Preprocessing, TimeWindows, Criteria, Evaluation, and Results. Instantaneous monitoring, nesting details, and online statistics are implementation classes under Internal.</p></html>"));
+    annotation(Documentation(info="<html><p><b>Chain:</b> Scenario trajectory -&gt; P -&gt; C; C and W -&gt; E -&gt; Q -&gt; result.</p><p>P computes the indicator; C defines safe values; W defines the active domain; E accumulates temporal evidence and pass[3]; Q resolves state, verdict, grade, Top Event, and evidence. Des is metadata. Scenario S owns the model and variable binding and is outside A.</p></html>"));
   end Architecture;
 
-  class SafetyAssessmentConcept "Executable safety evidence"
+  class SafetyAssessmentConcept "Read-only executable safety evidence"
     extends Modelica.Icons.Information;
-    annotation(Documentation(info="<html><p>Preprocessing converts one or more observations and optional references into z. Four visible GradeInterval blocks define the progressively broader A/B/C/D acceptable ranges. Evaluation uses only the selected TimeWindow and accumulates evidence online before freezing a final decision. Result exposes state, grade, top event, display code, sampled margins/value, critical timing, and outer violation.</p><p>A legal assessment without usable window or reference evidence is Unresolved. An illegal configuration is Invalid. Severe observed behavior is Resolved D, with outerViolation only when the outer D interval itself was left.</p></html>"));
+    annotation(Documentation(info="<html><p>An asset reads Real and Boolean trajectories. It has no physical ports or control outputs, and cannot alter the assessed system. Inactive, Monitoring, Resolved, Unresolved, and Invalid lifecycle states remain distinct from A/B/C/D consequence grade. A legal trajectory outside C is a resolved Grade D, never an Invalid configuration.</p></html>"));
   end SafetyAssessmentConcept;
 
-  class ReferenceComparison "Nominal reference ownership and binding"
+  class ReferenceComparison "Optional Scenario-owned references"
     extends Modelica.Icons.Information;
-    annotation(Documentation(info="<html><p>ReferenceMode.None uses only the observed trajectory. ParallelNominal means the outer Scenario instantiates M and M_F and connects both observations to a reference preprocessor. RecordedNominal reserves the same input convention for an externally supplied trace; this version performs no file reading.</p><p>A2_BusDeviation demonstrates ParallelNominal with RelativeDifference. If an advanced binding can become unavailable at run time, enable Evaluation.useDataValidityInput; unavailable data yields Unresolved, not Invalid.</p></html>"));
+    annotation(Documentation(info="<html><p>Use Identity when no reference is needed. Difference, RelativeDifference, Ratio, and NormDifference receive references from the Scenario. ReferenceMode documents None, RecordedNominal, or ParallelNominal provenance; the asset never instantiates a nominal plant or reads a nominal file.</p></html>"));
   end ReferenceComparison;
 
-  class TimeWindowSemantics "Orthogonal time locators"
+  class TimeWindowSemantics "Orthogonal W semantics"
     extends Modelica.Icons.Information;
-    annotation(Documentation(info="<html><p>TimeWindow blocks expose active and configurationValid and connect only to Evaluation. They never connect to each GradeInterval. Finite windows are [start,end): start inclusive and end exclusive. TriggeredDuration restarts on each rising edge; AfterFor is single-shot; stop has priority for simultaneous StartStop/AfterUntil edges.</p></html>"));
+    annotation(Documentation(info="<html><p>Always, FixedWindow, During, After, AfterFor, TriggeredDuration, and BetweenEvents output one WindowState. Fixed domains use [start,end). BetweenEvents is the canonical replacement for the former duplicate AfterUntil and StartStop entries. Duration, count, response, recovery, and exposure belong to E, not W.</p></html>"));
   end TimeWindowSemantics;
 
-  class Grade4Semantics "Four visible intervals and final grade"
+  class GradeSemantics "Nested A/B/C acceptance and saturated D"
     extends Modelica.Icons.Information;
-    annotation(Documentation(info="<html><p>Place four GradeInterval blocks vertically and label them A, B, C, and D. Edit each lower/upper range and Open/Closed endpoints directly. Evaluation automatically checks A subset B subset C subset D and reports the first failed containment relation.</p><p>The final grade is the strictest passing level: A, otherwise B, otherwise C, otherwise D. Failure through D still saturates at D and is distinguished by outerViolation. Illegal nesting is Invalid and never reinterpreted as D.</p></html>"));
-  end Grade4Semantics;
+    annotation(Documentation(info="<html><p>Criteria.GradedCriteria enforces I_A subset I_B subset I_C. Pass A gives A; otherwise pass B gives B; otherwise pass C gives C; otherwise D. D has no fourth interval. DynamicGradedCriteria applies the same nesting relation to time-varying physical bounds and E latches active-domain violations.</p></html>"));
+  end GradeSemantics;
 
-  class TopEventMapping "FTA-compatible top-event mapping"
+  class TopEventMapping "FTA-compatible Boolean"
     extends Modelica.Icons.Information;
-    annotation(Documentation(info="<html><p>The same Assessment supports FMEA through grade and FTA through Boolean topEvent. The default threshold is D; threshold C maps final C or D to true. Critical margin and timing fields select the evidence level named by topEventThreshold.</p></html>"));
+    annotation(Documentation(info="<html><p>Results.SafetyResult maps a resolved grade through a configurable threshold, or accepts an independent Boolean condition. Threshold D maps only D; threshold C maps C/D. Top Event, consequence grade, and normative verdict are independent result fields.</p></html>"));
   end TopEventMapping;
 
-  class GraphicalModeling "Drag, edit, connect, simulate"
+  class GraphicalModeling "Drag-and-connect workflow"
     extends Modelica.Icons.Information;
-    annotation(Documentation(info="<html><ol><li>Create one model extending the metadata-only Interfaces.PartialAssessment.</li><li>Add read-only input connectors.</li><li>Drag a Preprocessing block.</li><li>Drag four Criteria.GradeInterval blocks and edit their ranges.</li><li>Drag one TimeWindow and one Evaluation policy.</li><li>Connect the four criterion evidence lines and TimeWindow active/valid to Evaluation.</li><li>Connect Evaluation.evidence to Results.AssessmentResult and publish its compact record.</li><li>In the Scenario, bind M/M_F variables with RealExpression or BooleanExpression.</li></ol><p>All shipped white-box connects have explicit Line annotations with endpoints on their connector coordinates. Internal arrays are protected/HideResult; users normally inspect A.result.</p></html>"));
+    annotation(Documentation(info="<html><ol><li>Extend BaseClasses.PartialAssessment and fill Des metadata.</li><li>Add only required observation/reference/trigger inputs.</li><li>Place P and connect its scalar indicator to one GradedCriteria.</li><li>Place one W.</li><li>Connect the typed C result and typed W state to one public E block.</li><li>Connect the typed E result to Results.SafetyResult and its structured result to the inherited right-side connector.</li><li>Optionally attach ConsoleReporter.</li></ol><p>Open C, E, or Q to inspect their fine-grained white-box implementation.</p></html>"));
   end GraphicalModeling;
 
-  class Examples "Three assessments and one coupled Scenario"
+  class Examples "Eight assets and two scenarios"
     extends Modelica.Icons.Information;
-    annotation(Documentation(info="<html><p><b>A1_SOCSafety:</b> Identity + four SOC intervals + Always + AllInside.</p><p><b>A2_BusDeviation:</b> RelativeDifference + four percentage intervals + FixedWindow + MaxOutsideDuration.</p><p><b>A3_AttitudeRateSafety:</b> three-axis EuclideanNorm + four rate intervals + TriggeredDuration + MaxConsecutiveOutside.</p><p>S_MultiObjectiveAssessment separates SYSTEM MODELS, OBSERVATION BINDINGS, and SAFETY ASSESSMENTS. Its coupled trajectories resolve A1=B, A2=C, A3=D, with A3 topEvent=true.</p></html>"));
+    annotation(Documentation(info="<html><p>A1: direct SOC range. A2: parallel-nominal bus deviation. A3: triggered body-rate persistence. A4: dynamic graded bounds. A5: violation count. A6: first recovery plus safe dwell. A7: integrated negative margin. A8: independent Boolean Top Event.</p><p>S_MultiObjectiveAssessment binds A1-A3 to nominal/faulted systems; S_AdvancedAssessmentExamples binds A4-A8 to representative trajectories.</p></html>"));
   end Examples;
 
-  class KnownLimitations "Version 1.2 boundaries"
+  class KnownLimitations "Version 2.1.0 boundaries"
     extends Modelica.Icons.Information;
-    annotation(Documentation(info="<html><p>Version 1.2 uses scalar, time-invariant grade intervals. Durations/transitions are event-aware; extrema are sampled at samplePeriod. RecordedNominal file ingestion is not included.</p><p>No Boolean-specialized objective, multidimensional/dynamic boundary, sequencing/deadline, integral/dose, RMS/moving window, FFT, probability, Monte Carlo, composite assessment, occurrence/FMECA calculation, automatic FTA, SysML/CRML integration, or external Python framework is included.</p></html>"));
+    annotation(Documentation(info="<html><p>Extrema and minimum margins use a configurable sampling period and may miss inter-sample peaks. RecordedNominal file ingestion is not implemented. TriggeredResponseWithin records only the first trigger/response episode; FirstRecoveryWithin records first violation/recovery. No parser/compiler, automatic FTA/FMEA probability calculation, Monte Carlo orchestrator, FMI/SSP, SysML integration, or external postprocessor is included.</p></html>"));
   end KnownLimitations;
 
-  annotation(Documentation(info="<html><p>SafetyAssessmentLibrary was informed by Modelica_Requirements, FORM-L / ReqSysPro, and CRML concepts for executable properties, time locators, condition/time separation, observers, and bindings.</p><p><b>SafetyAssessmentLibrary is an independent Modelica library for simulation-driven safety assessment and has no runtime dependency on these reference projects.</b></p></html>"));
+  annotation(Documentation(info="<html><p><b>SafetyAssessmentLibrary is an independent Modelica library for simulation-driven safety assessment and has no runtime dependency on the reference projects that informed its design.</b></p></html>"));
 end UsersGuide;

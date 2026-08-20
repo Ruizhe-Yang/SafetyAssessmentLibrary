@@ -1,48 +1,56 @@
 within SafetyAssessmentLibrary.Examples.Scenarios;
 model S_MultiObjectiveAssessment "Coupled M/M_F behavior, explicit bindings, and three white-box assessments"
-  Systems.NominalSystem M
+  Systems.NominalSystem M 
     annotation(Placement(transformation(extent={{-146,35},{-106,75}})));
-  Systems.FaultedSystem M_F
+  Systems.FaultedSystem M_F 
     annotation(Placement(transformation(extent={{-146,-65},{-106,-25}})));
 
-  Modelica.Blocks.Sources.RealExpression obsFaultSOC(y=M_F.batterySOC)
-    annotation(Placement(transformation(extent={{18,73},{38,87}})));
-  Modelica.Blocks.Sources.RealExpression obsFaultBus(y=M_F.busVoltage)
-    annotation(Placement(transformation(extent={{18,28},{38,42}})));
-  Modelica.Blocks.Sources.RealExpression obsNominalBus(y=M.busVoltage)
-    annotation(Placement(transformation(extent={{18,8},{38,22}})));
-  Modelica.Blocks.Sources.RealExpression obsBodyRateX(y=M_F.bodyRateX)
-    annotation(Placement(transformation(extent={{18,-62},{38,-48}})));
-  Modelica.Blocks.Sources.RealExpression obsBodyRateY(y=M_F.bodyRateY)
-    annotation(Placement(transformation(extent={{18,-72},{38,-58}})));
-  Modelica.Blocks.Sources.RealExpression obsBodyRateZ(y=M_F.bodyRateZ)
-    annotation(Placement(transformation(extent={{18,-82},{38,-68}})));
-  Modelica.Blocks.Sources.BooleanExpression obsManeuverTrigger(y=M_F.maneuverTrigger)
-    annotation(Placement(transformation(extent={{18,-95},{38,-81}})));
-  Modelica.Blocks.Sources.BooleanExpression obsFaultTrigger(y=M_F.faultTrigger)
-    annotation(Placement(transformation(extent={{18,-111},{38,-97}})));
+  Modelica.Blocks.Sources.RealExpression obsFaultSOC(y=M_F.batterySOC) 
+    annotation(Placement(transformation(origin={20,80},
+extent={{-18,-7},{18,7}})));
+  Modelica.Blocks.Sources.RealExpression obsFaultBus(y=M_F.busVoltage) 
+    annotation(Placement(transformation(origin={20,35},
+extent={{-18,-7},{18,7}})));
+  Modelica.Blocks.Sources.RealExpression obsNominalBus(y=M.busVoltage) 
+    annotation(Placement(transformation(origin={20,15},
+extent={{-18,-7},{18,7}})));
+  Modelica.Blocks.Sources.RealExpression obsBodyRateX(y=M_F.bodyRateX) 
+    annotation(Placement(transformation(origin={20,-55},
+extent={{-18,-7},{18,7}})));
+  Modelica.Blocks.Sources.RealExpression obsBodyRateY(y=M_F.bodyRateY) 
+    annotation(Placement(transformation(origin={20,-65},
+extent={{-18,-7},{18,7}})));
+  Modelica.Blocks.Sources.RealExpression obsBodyRateZ(y=M_F.bodyRateZ) 
+    annotation(Placement(transformation(origin={20,-75},
+extent={{-18,-7},{18,7}})));
+  Modelica.Blocks.Sources.BooleanExpression obsManeuverTrigger(y=M_F.maneuverTrigger) 
+    annotation(Placement(transformation(origin={20,-88},
+extent={{-18,-7},{18,7}})));
+  Modelica.Blocks.Sources.BooleanExpression obsFaultTrigger(y=M_F.faultTrigger) 
+    annotation(Placement(transformation(origin={20,-104},
+extent={{-18,-7},{18,7}})));
 
-  Assessments.A1_SOCSafety A1
+  Assessments.A1_SOCSafety A1 
     annotation(Placement(transformation(extent={{90,60},{140,100}})));
-  Assessments.A2_BusDeviation A2
+  Assessments.A2_BusDeviation A2 
     annotation(Placement(transformation(extent={{90,5},{140,45}})));
-  Assessments.A3_AttitudeRateSafety A3
+  Assessments.A3_AttitudeRateSafety A3 
     annotation(Placement(transformation(extent={{90,-95},{140,-45}})));
 equation
-  connect(obsFaultSOC.y,A1.SOC)
-    annotation(Line(points={{39,80},{87.5,80}}, color={0,0,127}));
-  connect(obsFaultBus.y,A2.faultBusVoltage)
-    annotation(Line(points={{39,35},{66,35},{66,33},{87.5,33}}, color={0,0,127}));
-  connect(obsNominalBus.y,A2.nominalBusVoltage)
-    annotation(Line(points={{39,15},{66,15},{66,17},{87.5,17}}, color={0,0,127}));
-  connect(obsBodyRateX.y,A3.bodyRateX)
-    annotation(Line(points={{39,-55},{87.5,-55}}, color={0,0,127}));
-  connect(obsBodyRateY.y,A3.bodyRateY)
-    annotation(Line(points={{39,-65},{87.5,-65}}, color={0,0,127}));
-  connect(obsBodyRateZ.y,A3.bodyRateZ)
-    annotation(Line(points={{39,-75},{87.5,-75}}, color={0,0,127}));
-  connect(obsManeuverTrigger.y,A3.maneuverTrigger)
-    annotation(Line(points={{39,-88},{66,-88},{66,-87.5},{87.5,-87.5}}, color={255,0,255}));
+  connect(obsFaultSOC.y,A1.SOC) 
+    annotation(Line(points={{39,80},{90,80}}, color={0,0,127}));
+  connect(obsFaultBus.y,A2.faultBusVoltage) 
+    annotation(Line(points={{39,35},{66,35},{66,33},{90,33}}, color={0,0,127}));
+  connect(obsNominalBus.y,A2.nominalBusVoltage) 
+    annotation(Line(points={{39,15},{66,15},{66,17},{90,17}}, color={0,0,127}));
+  connect(obsBodyRateX.y,A3.bodyRateX) 
+    annotation(Line(points={{39,-55},{90,-55}}, color={0,0,127}));
+  connect(obsBodyRateY.y,A3.bodyRateY) 
+    annotation(Line(points={{39,-65},{90,-65}}, color={0,0,127}));
+  connect(obsBodyRateZ.y,A3.bodyRateZ) 
+    annotation(Line(points={{39,-75},{90,-75}}, color={0,0,127}));
+  connect(obsManeuverTrigger.y,A3.maneuverTrigger) 
+    annotation(Line(points={{39,-88},{66,-88},{66,-87.5},{90,-87.5}}, color={255,0,255}));
   annotation(
     Diagram(coordinateSystem(extent={{-160,-120},{160,120}}, grid={2,2}), graphics={
       Rectangle(extent={{-154,108},{-96,-108}}, lineColor={170,170,170}, linePattern=LinePattern.Dash),

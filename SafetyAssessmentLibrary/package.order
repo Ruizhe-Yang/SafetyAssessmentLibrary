@@ -1,11 +1,9 @@
 UsersGuide
-Types
-Interfaces
-Utilities
-Preprocessing
-TimeWindows
-Criteria
+BaseClasses
 Internal
+Preprocessing
+Criteria
+TimeWindows
 Evaluation
 Results
 Examples

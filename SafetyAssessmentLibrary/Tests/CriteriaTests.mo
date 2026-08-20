@@ -1,69 +1,62 @@
 within SafetyAssessmentLibrary.Tests;
-package CriteriaTests "GradeInterval, endpoints, nesting, and outside-D tests"
+package CriteriaTests "Static, dynamic, and boundary criteria tests"
   extends Modelica.Icons.ExamplesPackage;
 
-  model NormalNested
-    Criteria.GradeInterval intervalA(grade=Types.SafetyGrade.A,lower=-1,upper=1) annotation(Placement(transformation(extent={{-80,50},{-50,70}})));
-    Criteria.GradeInterval intervalB(grade=Types.SafetyGrade.B,lower=-2,upper=2) annotation(Placement(transformation(extent={{-80,20},{-50,40}})));
-    Criteria.GradeInterval intervalC(grade=Types.SafetyGrade.C,lower=-3,upper=3) annotation(Placement(transformation(extent={{-80,-10},{-50,10}})));
-    Criteria.GradeInterval intervalD(grade=Types.SafetyGrade.D,lower=-4,upper=4) annotation(Placement(transformation(extent={{-80,-40},{-50,-20}})));
-    Internal.GradeNestingCheck nesting annotation(Placement(transformation(extent={{20,-40},{50,70}})));
-  equation
-    intervalA.z=0.5;
-    intervalB.z=0.5;
-    intervalC.z=0.5;
-    intervalD.z=0.5;
-    connect(intervalA.criterion,nesting.criterionA) annotation(Line(points={{-48.5,60},{3,60},{3,53.5},{18.5,53.5}}, color={30,120,90}));
-    connect(intervalB.criterion,nesting.criterionB) annotation(Line(points={{-48.5,30},{6,30},{6,31.5},{18.5,31.5}}, color={30,120,90}));
-    connect(intervalC.criterion,nesting.criterionC) annotation(Line(points={{-48.5,0},{6,0},{6,9.5},{18.5,9.5}}, color={30,120,90}));
-    connect(intervalD.criterion,nesting.criterionD) annotation(Line(points={{-48.5,-30},{3,-30},{3,-12.5},{18.5,-12.5}}, color={30,120,90}));
-    when terminal() then
-      assert(nesting.configurationValid,"Expected valid nested intervals");
-      assert(intervalA.criterion.inside and intervalB.criterion.inside and intervalC.criterion.inside and intervalD.criterion.inside,"Expected membership in all grades");
-    end when;
-    annotation(experiment(StopTime=1), Documentation(info="<html><p>Expected: four individually editable intervals form A subset B subset C subset D and contain z.</p></html>"));
-  end NormalNested;
+  model StaticNested
+    Criteria.GradedCriteria c(lower={-1,-2,-3},upper={1,2,3});
+    Modelica.Blocks.Sources.Constant x(k=0);
+  equation connect(x.y,c.indicator);
+    when terminal() then assert(c.criteria.configurationValid and Modelica.Math.BooleanVectors.allTrue(c.criteria.inside),"Nested criteria failed"); end when;
+    annotation(experiment(StopTime=0.1));
+  end StaticNested;
 
-  model BoundaryOpenClosed
-    Criteria.GradeInterval closedInterval(lower=0,upper=1);
-    Criteria.GradeInterval openInterval(lower=0,upper=1,lowerBoundary=Types.BoundaryType.Open);
-  equation
-    closedInterval.z=0;
-    openInterval.z=0;
-    when terminal() then
-      assert(closedInterval.criterion.inside,"Closed lower endpoint must be inside");
-      assert(not openInterval.criterion.inside,"Open lower endpoint must be outside");
-      assert(abs(closedInterval.criterion.signedMargin) < 1e-12 and abs(openInterval.criterion.signedMargin) < 1e-12,"Endpoint geometric margin must be zero");
-    end when;
-    annotation(experiment(StopTime=1), Documentation(info="<html><p>Open/Closed membership remains exact even though both geometric margins equal zero at the endpoint.</p></html>"));
-  end BoundaryOpenClosed;
+  model ClosedBoundary
+    Criteria.GradedCriteria c(lower={-1,-2,-3},upper={1,2,3});
+    Modelica.Blocks.Sources.Constant x(k=1);
+  equation connect(x.y,c.indicator);
+    when terminal() then assert(c.criteria.inside[1] and abs(c.criteria.margin[1])<1e-12,"Closed boundary shall be inside with zero margin"); end when;
+    annotation(experiment(StopTime=0.1));
+  end ClosedBoundary;
 
-  model InvalidNested
-    Criteria.GradeInterval intervalA(lower=-2,upper=2) annotation(Placement(transformation(extent={{-80,50},{-50,70}})));
-    Criteria.GradeInterval intervalB(lower=-1,upper=1) annotation(Placement(transformation(extent={{-80,20},{-50,40}})));
-    Criteria.GradeInterval intervalC(lower=-3,upper=3) annotation(Placement(transformation(extent={{-80,-10},{-50,10}})));
-    Criteria.GradeInterval intervalD(lower=-4,upper=4) annotation(Placement(transformation(extent={{-80,-40},{-50,-20}})));
-    Internal.GradeNestingCheck nesting annotation(Placement(transformation(extent={{20,-40},{50,70}})));
-  equation
-    intervalA.z=0; intervalB.z=0; intervalC.z=0; intervalD.z=0;
-    connect(intervalA.criterion,nesting.criterionA) annotation(Line(points={{-48.5,60},{3,60},{3,53.5},{18.5,53.5}}, color={30,120,90}));
-    connect(intervalB.criterion,nesting.criterionB) annotation(Line(points={{-48.5,30},{6,30},{6,31.5},{18.5,31.5}}, color={30,120,90}));
-    connect(intervalC.criterion,nesting.criterionC) annotation(Line(points={{-48.5,0},{6,0},{6,9.5},{18.5,9.5}}, color={30,120,90}));
-    connect(intervalD.criterion,nesting.criterionD) annotation(Line(points={{-48.5,-30},{3,-30},{3,-12.5},{18.5,-12.5}}, color={30,120,90}));
-    when terminal() then assert(not nesting.configurationValid and nesting.invalidCode == 1,"A wider than B must report the A/B nesting error"); end when;
-    annotation(experiment(StopTime=1), Documentation(info="<html><p>Illegal nesting is a configuration error, not Grade D.</p></html>"));
-  end InvalidNested;
+  model OpenBoundary
+    Criteria.GradedCriteria c(lower={-1,-2,-3},upper={1,2,3},upperBoundary={BaseClasses.BoundaryType.Open,BaseClasses.BoundaryType.Closed,BaseClasses.BoundaryType.Closed});
+    Modelica.Blocks.Sources.Constant x(k=1);
+  equation connect(x.y,c.indicator);
+    when terminal() then assert(not c.criteria.inside[1] and c.criteria.inside[2],"Open A boundary shall fail A only"); end when;
+    annotation(experiment(StopTime=0.1));
+  end OpenBoundary;
 
-  model OutsideD
-    Criteria.GradeInterval intervalD(grade=Types.SafetyGrade.D,lower=-4,upper=4);
-  equation
-    intervalD.z=5;
-    when terminal() then
-      assert(intervalD.criterion.configurationValid,"Outside-D trajectory must not invalidate the interval");
-      assert(not intervalD.criterion.inside and intervalD.criterion.signedMargin < 0,"Expected valid outside-D evidence");
-    end when;
-    annotation(experiment(StopTime=1), Documentation(info="<html><p>A value outside a legal D interval remains valid evidence with negative margin.</p></html>"));
-  end OutsideD;
+  model InvalidNesting
+    Criteria.GradedCriteria c(lower={-1,-0.5,-3},upper={1,0.5,3});
+    Modelica.Blocks.Sources.Constant x(k=0);
+  equation connect(x.y,c.indicator);
+    when terminal() then assert(not c.criteria.configurationValid and c.criteria.invalidReason==BaseClasses.InvalidReason.GradeNesting,"Invalid nesting not detected"); end when;
+    annotation(experiment(StopTime=0.1));
+  end InvalidNesting;
 
-  annotation(Documentation(info="<html><p>Regression coverage for the new user-facing four-block criterion workflow.</p></html>"));
+  model OutsideOuter
+    Criteria.GradedCriteria c(lower={-1,-2,-3},upper={1,2,3});
+    Modelica.Blocks.Sources.Constant x(k=4);
+  equation connect(x.y,c.indicator);
+    when terminal() then assert(c.criteria.configurationValid and not Modelica.Math.BooleanVectors.anyTrue(c.criteria.inside),"Outside C must remain valid configuration"); end when;
+    annotation(experiment(StopTime=0.1));
+  end OutsideOuter;
+
+  model DynamicNested
+    Criteria.DynamicGradedCriteria c;
+    Modelica.Blocks.Sources.RealExpression x(y=0),la(y=-1),ua(y=1),lb(y=-2),ub(y=2),lc(y=-3),uc(y=3);
+  equation
+    connect(x.y,c.value); connect(la.y,c.lowerA); connect(ua.y,c.upperA); connect(lb.y,c.lowerB); connect(ub.y,c.upperB); connect(lc.y,c.lowerC); connect(uc.y,c.upperC);
+    when terminal() then assert(c.criteria.configurationValid and c.criteria.isDynamic,"Valid dynamic nesting failed"); end when;
+    annotation(experiment(StopTime=1));
+  end DynamicNested;
+
+  model DynamicCrossing
+    Criteria.DynamicGradedCriteria c;
+    Modelica.Blocks.Sources.RealExpression x(y=0),la(y=if time<0.5 then -1 else -2.5),ua(y=1),lb(y=-2),ub(y=2),lc(y=-3),uc(y=3);
+  equation
+    connect(x.y,c.value); connect(la.y,c.lowerA); connect(ua.y,c.upperA); connect(lb.y,c.lowerB); connect(ub.y,c.upperB); connect(lc.y,c.lowerC); connect(uc.y,c.upperC);
+    when terminal() then assert(not c.criteria.configurationValid and c.criteria.invalidReason==BaseClasses.InvalidReason.DynamicGradeNesting,"Dynamic crossing not detected"); end when;
+    annotation(experiment(StopTime=1));
+  end DynamicCrossing;
 end CriteriaTests;
