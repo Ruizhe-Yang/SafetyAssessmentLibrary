@@ -15,7 +15,7 @@ Scenario trajectory -> P -> C ---------> E -> Q -> result
 - C — `Criteria`: nested A/B/C membership, signed margins, and validity.
 - W — `TimeWindows`: active evaluation domain only.
 - E — `Evaluation`: online duration, count, fraction, recovery, response, dwell, exposure, and pass decisions.
-- Q — `Results.SafetyResult`: lifecycle, verdict, A/B/C/D grade, FTA Top Event, and evidence.
+- Q — `Results.SafetyResult`: lifecycle, verdict, A/B/C/D grade, Boolean top-event output, and evidence.
 - Des — metadata inherited from `BaseClasses.PartialAssessment`.
 - S — the external NISSA Scenario that owns system instances and observation binding.
 
@@ -58,12 +58,15 @@ equation
 end SOCObjective;
 ```
 
-At simulation end, Q returns `state`, `verdict`, `grade`, `topEvent`, typed `invalidReason`, `pass[3]`, data coverage, A/B/C margins, first violation/recovery, recovery duration, violation duration/count, integrated violation, and worst-value evidence.
+At simulation end, Q returns `state`, `verdict`, `grade`, `topEvent`, typed `invalidReason`, `pass[3]`, data coverage, A/B/C margins and inside fractions, longest-inside duration, first violation/recovery, post-recovery dwell, trigger/response timing, violation duration/count, integrated violation, and worst-value evidence.
 
 ## Examples
 
 - A1–A3 demonstrate direct range, parallel nominal comparison, and triggered persistence.
 - A4–A8 demonstrate dynamic envelopes, event count, first recovery, integrated violation, and independent Boolean Top Event mapping.
 - `S_MultiObjectiveAssessment` and `S_AdvancedAssessmentExamples` bind all eight assets outside the assessed systems.
+- `A1_A8_Overview` places the same eight unchanged assets and their established bindings on one 2-by-4 Diagram.
+
+SafetyAssessmentLibrary is not a Fault Tree library. In particular, A8 is an existing Boolean safety-condition mapping and introduces no basic-event, gate, or cut-set model.
 
 See `UsersGuide` for modeling guidance, `DESIGN.md` for the internal architecture, and `VALIDATION_REPORT.md` for backend and graphics validation status.

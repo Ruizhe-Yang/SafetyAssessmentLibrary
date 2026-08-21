@@ -80,6 +80,8 @@ package BaseClasses "Advanced types, connectors, and partial contracts"
     Modelica.Units.SI.Time firstViolationTime[3];
     Modelica.Units.SI.Time firstRecoveryTime[3];
     Modelica.Units.SI.Time recoveryDuration[3];
+    Modelica.Units.SI.Time postRecoverySafeDwell[3]
+      "Continuous safe dwell beginning at the first recovery";
     Real integratedViolation[3];
     Real minimumMargin[3];
     Real worstValue;
@@ -102,6 +104,16 @@ package BaseClasses "Advanced types, connectors, and partial contracts"
     Modelica.Units.SI.Time validDataDuration;
     Modelica.Units.SI.Time invalidDataDuration;
     Real dataCoverage;
+    Real insideFraction[3] "A/B/C valid-observation inside fractions";
+    Modelica.Units.SI.Time longestInsideDuration[3]
+      "A/B/C longest continuous inside durations";
+    Modelica.Units.SI.Time firstViolationTimeByLevel[3];
+    Modelica.Units.SI.Time firstRecoveryTimeByLevel[3];
+    Modelica.Units.SI.Time recoveryDurationByLevel[3];
+    Modelica.Units.SI.Time postRecoverySafeDwell[3];
+    Modelica.Units.SI.Time triggerTime;
+    Modelica.Units.SI.Time responseTime[3];
+    Modelica.Units.SI.Time responseDuration[3];
     Real minimumMarginByLevel[3] "A/B/C trace for grade explanation";
     Real minimumMargin "Outer-C minimum margin";
     Real worstValue;

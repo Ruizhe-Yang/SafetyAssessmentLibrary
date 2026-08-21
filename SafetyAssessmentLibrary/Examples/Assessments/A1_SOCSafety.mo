@@ -4,7 +4,8 @@ model A1_SOCSafety "Battery SOC: direct range assessment"
   Modelica.Blocks.Interfaces.RealInput SOC annotation(Placement(transformation(extent={{-320,50},{-300,70}}),iconTransformation(extent={{-110,-10},{-90,10}})));
 protected
   Preprocessing.Identity p annotation(Placement(transformation(extent={{-260,40},{-220,80}})));
-  Criteria.GradedCriteria c(lower={0.58,0.39,0.30},upper={0.85,0.90,0.95}) annotation(Placement(transformation(extent={{-180,30},{-120,90}})));
+  Criteria.GradedCriteria c(lower={0.58,0.39,0.30},upper={0.85,0.90,0.95}) annotation(Placement(transformation(origin={-143,60},
+extent={{-23,-20},{23,20}})));
   TimeWindows.Always w annotation(Placement(transformation(extent={{-180,-100},{-120,-60}})));
   Evaluation.AllInside e(samplePeriod=0.1) annotation(Placement(transformation(extent={{-60,10},{40,90}})));
   Results.SafetyResult q(acceptableGrade=BaseClasses.SafetyGrade.C,topEventThreshold=BaseClasses.SafetyGrade.D) annotation(Placement(transformation(extent={{80,10},{180,90}})));

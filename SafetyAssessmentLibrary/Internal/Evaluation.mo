@@ -4,6 +4,8 @@ package Evaluation "Fine-grained temporal implementation behind public E blocks"
 
   record LiveEvidenceData
     Boolean currentWindowActive;
+    Boolean currentEffectiveActive
+      "True only while W, data validity, and criterion configuration are all valid";
     Boolean configurationValid;
     BaseClasses.InvalidReason invalidReason;
     Boolean evidenceAvailable;
@@ -22,6 +24,7 @@ package Evaluation "Fine-grained temporal implementation behind public E blocks"
     Modelica.Units.SI.Time firstViolationTime[3];
     Modelica.Units.SI.Time firstRecoveryTime[3];
     Modelica.Units.SI.Time recoveryDuration[3];
+    Modelica.Units.SI.Time postRecoverySafeDwell[3];
     Real integratedViolation[3];
     Real minimumMargin[3];
     Real worstValue;
@@ -130,25 +133,44 @@ package Evaluation "Fine-grained temporal implementation behind public E blocks"
     Modelica.Blocks.Interfaces.RealOutput firstViolationTime annotation(Placement(transformation(extent={{100,50},{120,70}}),iconTransformation(extent={{90,50},{110,70}})));
     Modelica.Blocks.Interfaces.RealOutput firstRecoveryTime annotation(Placement(transformation(extent={{100,-10},{120,10}}),iconTransformation(extent={{90,-10},{110,10}})));
     Modelica.Blocks.Interfaces.RealOutput recoveryDuration annotation(Placement(transformation(extent={{100,-70},{120,-50}}),iconTransformation(extent={{90,-70},{110,-50}})));
+    Modelica.Blocks.Interfaces.RealOutput postRecoverySafeDwell
+      "Continuous safe dwell starting at the first recovery";
   protected
     Boolean outsideNow;
     SafetyAssessmentLibrary.Internal.StableEdge edgeDetector annotation(Placement(transformation(extent={{-20,-20},{20,20}})));
     discrete Real storedViolation(start=-1,fixed=true);
     discrete Real storedRecovery(start=-1,fixed=true);
+    discrete Real storedSafeDwell(start=0,fixed=true);
+    discrete Boolean safeDwellClosed(start=false,fixed=true);
+  initial equation
+    pre(active)=active;
   equation
     outsideNow=active and not inside;
     edgeDetector.u=outsideNow;
     firstViolationTime=storedViolation;
     firstRecoveryTime=storedRecovery;
     recoveryDuration=if storedViolation>=0 and storedRecovery>=0 then storedRecovery-storedViolation else -1;
+    postRecoverySafeDwell=if storedRecovery<0 then 0 else if safeDwellClosed then storedSafeDwell else if active and inside then max(0,time-storedRecovery) else storedSafeDwell;
   algorithm
-    when {initial(),edgeDetector.rising,edgeDetector.falling} then
+    when {initial(),edgeDetector.rising,edgeDetector.falling,change(active)} then
       if initial() then
         storedViolation:=if outsideNow then time else -1;
         storedRecovery:=-1;
+        storedSafeDwell:=0;
+        safeDwellClosed:=false;
       else
         storedViolation:=if edgeDetector.rising and pre(storedViolation)<0 then time else pre(storedViolation);
         storedRecovery:=if edgeDetector.falling and active and inside and pre(storedViolation)>=0 and pre(storedRecovery)<0 then time else pre(storedRecovery);
+        if edgeDetector.falling and active and inside and pre(storedViolation)>=0 and pre(storedRecovery)<0 then
+          storedSafeDwell:=0;
+          safeDwellClosed:=false;
+        elseif pre(storedRecovery)>=0 and not pre(safeDwellClosed) and (edgeDetector.rising or (not active and pre(active))) then
+          storedSafeDwell:=max(0,time-pre(storedRecovery));
+          safeDwellClosed:=true;
+        else
+          storedSafeDwell:=pre(storedSafeDwell);
+          safeDwellClosed:=pre(safeDwellClosed);
+        end if;
       end if;
     end when;
     annotation(Icon(coordinateSystem(extent={{-100,-100},{100,100}}),graphics={Rectangle(extent={{-100,70},{100,-70}},lineColor={55,135,85},fillColor={232,247,237},fillPattern=FillPattern.Solid),Text(extent={{-84,34},{84,-30}},textString="REC",textColor={40,105,65})}));
@@ -213,6 +235,7 @@ package Evaluation "Fine-grained temporal implementation behind public E blocks"
     Modelica.Units.SI.Time firstViolationTime;
     Modelica.Units.SI.Time firstRecoveryTime;
     Modelica.Units.SI.Time recoveryDuration;
+    Modelica.Units.SI.Time postRecoverySafeDwell;
     Real integratedViolation;
     Real minimumMargin;
   end LevelEvidenceData;
@@ -266,6 +289,7 @@ package Evaluation "Fine-grained temporal implementation behind public E blocks"
     level.firstViolationTime=counter.firstTime;
     level.firstRecoveryTime=recovery.firstRecoveryTime;
     level.recoveryDuration=recovery.recoveryDuration;
+    level.postRecoverySafeDwell=recovery.postRecoverySafeDwell;
     level.integratedViolation=integrated.integral;
     level.minimumMargin=minimum.minimumMargin;
     annotation(Icon(coordinateSystem(extent={{-100,-100},{100,100}}),graphics={Rectangle(extent={{-100,82},{100,-82}},lineColor={55,135,85},fillColor={232,247,237},fillPattern=FillPattern.Solid),Text(extent={{-86,38},{86,-34}},textString="T / N / %",textColor={40,105,65})}),Diagram(coordinateSystem(extent={{-200,-120},{200,130}})));
@@ -337,6 +361,7 @@ package Evaluation "Fine-grained temporal implementation behind public E blocks"
     laneC.active=effectiveActive; laneC.inside=criteria.inside[3]; laneC.margin=criteria.margin[3]; laneC.activeDuration=validDuration.duration;
     worst.active=effectiveActive; worst.value=criteria.value; worst.margin=criteria.margin[3];
     evidence.currentWindowActive=window.active;
+    evidence.currentEffectiveActive=effectiveActive;
     evidence.windowActiveDuration=windowDuration.duration;
     evidence.validDataDuration=validDuration.duration;
     evidence.invalidDataDuration=invalidDuration.duration;
@@ -355,6 +380,7 @@ package Evaluation "Fine-grained temporal implementation behind public E blocks"
     evidence.firstViolationTime={laneA.level.firstViolationTime,laneB.level.firstViolationTime,laneC.level.firstViolationTime};
     evidence.firstRecoveryTime={laneA.level.firstRecoveryTime,laneB.level.firstRecoveryTime,laneC.level.firstRecoveryTime};
     evidence.recoveryDuration={laneA.level.recoveryDuration,laneB.level.recoveryDuration,laneC.level.recoveryDuration};
+    evidence.postRecoverySafeDwell={laneA.level.postRecoverySafeDwell,laneB.level.postRecoverySafeDwell,laneC.level.postRecoverySafeDwell};
     evidence.integratedViolation={laneA.level.integratedViolation,laneB.level.integratedViolation,laneC.level.integratedViolation};
     evidence.minimumMargin={laneA.level.minimumMargin,laneB.level.minimumMargin,laneC.level.minimumMargin};
     evidence.worstValue=worst.worstValue;
@@ -406,7 +432,7 @@ package Evaluation "Fine-grained temporal implementation behind public E blocks"
         evaluation.windowActiveDuration:=0; evaluation.validDataDuration:=0; evaluation.invalidDataDuration:=0; evaluation.dataCoverage:=0;
         evaluation.currentInside:=fill(false,3); evaluation.currentMargin:=fill(0,3); evaluation.lastInside:=fill(true,3);
         evaluation.outsideDuration:=fill(0,3); evaluation.longestOutsideDuration:=fill(0,3); evaluation.longestInsideDuration:=fill(0,3); evaluation.insideFraction:=fill(0,3); evaluation.outsideCount:=fill(0,3);
-        evaluation.firstViolationTime:=fill(-1,3); evaluation.firstRecoveryTime:=fill(-1,3); evaluation.recoveryDuration:=fill(-1,3); evaluation.integratedViolation:=fill(0,3); evaluation.minimumMargin:=fill(0,3);
+        evaluation.firstViolationTime:=fill(-1,3); evaluation.firstRecoveryTime:=fill(-1,3); evaluation.recoveryDuration:=fill(-1,3); evaluation.postRecoverySafeDwell:=fill(0,3); evaluation.integratedViolation:=fill(0,3); evaluation.minimumMargin:=fill(0,3);
         evaluation.worstValue:=0; evaluation.timeOfWorst:=-1; evaluation.triggerTime:=-1; evaluation.responseTime:=fill(-1,3); evaluation.responseDuration:=fill(-1,3);
       elseif not pre(evaluatedStored) and ((evaluationMode==BaseClasses.EvaluationMode.AtSimulationEnd and terminal()) or (evaluationMode==BaseClasses.EvaluationMode.OnTrigger and triggerSignal)) then
         evaluatedStored:=true;
@@ -417,21 +443,21 @@ package Evaluation "Fine-grained temporal implementation behind public E blocks"
         evaluation.windowActiveDuration:=evidence.windowActiveDuration; evaluation.validDataDuration:=evidence.validDataDuration; evaluation.invalidDataDuration:=evidence.invalidDataDuration; evaluation.dataCoverage:=evidence.dataCoverage;
         evaluation.currentInside:=evidence.currentInside; evaluation.currentMargin:=evidence.currentMargin; evaluation.lastInside:=evidence.lastInside;
         evaluation.outsideDuration:=evidence.outsideDuration; evaluation.longestOutsideDuration:=evidence.longestOutsideDuration; evaluation.longestInsideDuration:=evidence.longestInsideDuration; evaluation.insideFraction:=evidence.insideFraction; evaluation.outsideCount:=evidence.outsideCount;
-        evaluation.firstViolationTime:=evidence.firstViolationTime; evaluation.firstRecoveryTime:=evidence.firstRecoveryTime; evaluation.recoveryDuration:=evidence.recoveryDuration; evaluation.integratedViolation:=evidence.integratedViolation; evaluation.minimumMargin:=evidence.minimumMargin;
+        evaluation.firstViolationTime:=evidence.firstViolationTime; evaluation.firstRecoveryTime:=evidence.firstRecoveryTime; evaluation.recoveryDuration:=evidence.recoveryDuration; evaluation.postRecoverySafeDwell:=evidence.postRecoverySafeDwell; evaluation.integratedViolation:=evidence.integratedViolation; evaluation.minimumMargin:=evidence.minimumMargin;
         evaluation.worstValue:=evidence.worstValue; evaluation.timeOfWorst:=evidence.timeOfWorst; evaluation.triggerTime:=candidate.triggerTime; evaluation.responseTime:=candidate.responseTime; evaluation.responseDuration:=candidate.responseDuration;
       elseif not pre(evaluatedStored) and evaluationMode==BaseClasses.EvaluationMode.OnTrigger and terminal() then
         evaluatedStored:=true; configurationStored:=currentConfiguration; evidenceStored:=false; passStored:=fill(false,3); reasonStored:=BaseClasses.InvalidReason.MissingTrigger;
         evaluation.windowActiveDuration:=evidence.windowActiveDuration; evaluation.validDataDuration:=evidence.validDataDuration; evaluation.invalidDataDuration:=evidence.invalidDataDuration; evaluation.dataCoverage:=evidence.dataCoverage;
         evaluation.currentInside:=evidence.currentInside; evaluation.currentMargin:=evidence.currentMargin; evaluation.lastInside:=evidence.lastInside;
         evaluation.outsideDuration:=evidence.outsideDuration; evaluation.longestOutsideDuration:=evidence.longestOutsideDuration; evaluation.longestInsideDuration:=evidence.longestInsideDuration; evaluation.insideFraction:=evidence.insideFraction; evaluation.outsideCount:=evidence.outsideCount;
-        evaluation.firstViolationTime:=evidence.firstViolationTime; evaluation.firstRecoveryTime:=evidence.firstRecoveryTime; evaluation.recoveryDuration:=evidence.recoveryDuration; evaluation.integratedViolation:=evidence.integratedViolation; evaluation.minimumMargin:=evidence.minimumMargin;
+        evaluation.firstViolationTime:=evidence.firstViolationTime; evaluation.firstRecoveryTime:=evidence.firstRecoveryTime; evaluation.recoveryDuration:=evidence.recoveryDuration; evaluation.postRecoverySafeDwell:=evidence.postRecoverySafeDwell; evaluation.integratedViolation:=evidence.integratedViolation; evaluation.minimumMargin:=evidence.minimumMargin;
         evaluation.worstValue:=evidence.worstValue; evaluation.timeOfWorst:=evidence.timeOfWorst; evaluation.triggerTime:=candidate.triggerTime; evaluation.responseTime:=candidate.responseTime; evaluation.responseDuration:=candidate.responseDuration;
       else
         evaluatedStored:=pre(evaluatedStored); configurationStored:=pre(configurationStored); evidenceStored:=pre(evidenceStored); passStored:=pre(passStored); reasonStored:=pre(reasonStored);
         evaluation.windowActiveDuration:=pre(evaluation.windowActiveDuration); evaluation.validDataDuration:=pre(evaluation.validDataDuration); evaluation.invalidDataDuration:=pre(evaluation.invalidDataDuration); evaluation.dataCoverage:=pre(evaluation.dataCoverage);
         evaluation.currentInside:=pre(evaluation.currentInside); evaluation.currentMargin:=pre(evaluation.currentMargin); evaluation.lastInside:=pre(evaluation.lastInside);
         evaluation.outsideDuration:=pre(evaluation.outsideDuration); evaluation.longestOutsideDuration:=pre(evaluation.longestOutsideDuration); evaluation.longestInsideDuration:=pre(evaluation.longestInsideDuration); evaluation.insideFraction:=pre(evaluation.insideFraction); evaluation.outsideCount:=pre(evaluation.outsideCount);
-        evaluation.firstViolationTime:=pre(evaluation.firstViolationTime); evaluation.firstRecoveryTime:=pre(evaluation.firstRecoveryTime); evaluation.recoveryDuration:=pre(evaluation.recoveryDuration); evaluation.integratedViolation:=pre(evaluation.integratedViolation); evaluation.minimumMargin:=pre(evaluation.minimumMargin);
+        evaluation.firstViolationTime:=pre(evaluation.firstViolationTime); evaluation.firstRecoveryTime:=pre(evaluation.firstRecoveryTime); evaluation.recoveryDuration:=pre(evaluation.recoveryDuration); evaluation.postRecoverySafeDwell:=pre(evaluation.postRecoverySafeDwell); evaluation.integratedViolation:=pre(evaluation.integratedViolation); evaluation.minimumMargin:=pre(evaluation.minimumMargin);
         evaluation.worstValue:=pre(evaluation.worstValue); evaluation.timeOfWorst:=pre(evaluation.timeOfWorst); evaluation.triggerTime:=pre(evaluation.triggerTime); evaluation.responseTime:=pre(evaluation.responseTime); evaluation.responseDuration:=pre(evaluation.responseDuration);
       end if;
     end when;
@@ -516,7 +542,7 @@ package Evaluation "Fine-grained temporal implementation behind public E blocks"
     parameter Modelica.Units.SI.Time minimumSafeDwell[3]=fill(0,3);
   equation
     candidate.parameterValid=min(maxRecoveryDuration)>=0 and maxRecoveryDuration[1]<=maxRecoveryDuration[2] and maxRecoveryDuration[2]<=maxRecoveryDuration[3] and min(minimumSafeDwell)>=0 and minimumSafeDwell[1]>=minimumSafeDwell[2] and minimumSafeDwell[2]>=minimumSafeDwell[3];
-    for i in 1:3 loop candidate.pass[i]=evidence.firstViolationTime[i]<0 or (evidence.recoveryDuration[i]>=0 and evidence.recoveryDuration[i]<=maxRecoveryDuration[i] and evidence.longestInsideDuration[i]>=minimumSafeDwell[i]); end for;
+    for i in 1:3 loop candidate.pass[i]=evidence.firstViolationTime[i]<0 or (evidence.recoveryDuration[i]>=0 and evidence.recoveryDuration[i]<=maxRecoveryDuration[i] and evidence.postRecoverySafeDwell[i]>=minimumSafeDwell[i]); end for;
     annotation(Icon(coordinateSystem(extent={{-100,-100},{100,100}}),graphics={Rectangle(extent={{-100,76},{100,-76}},lineColor={115,115,115},fillColor={242,242,242},fillPattern=FillPattern.Solid),Text(extent={{-88,36},{88,-32}},textString="REC dt",textColor={75,75,75})}));
   end FirstRecoveryWithinComparator;
   block MinConsecutiveInsideComparator
@@ -541,9 +567,11 @@ package Evaluation "Fine-grained temporal implementation behind public E blocks"
     discrete Boolean triggerSeen(start=false,fixed=true);
     discrete Modelica.Units.SI.Time storedTrigger(start=-1,fixed=true);
     discrete Modelica.Units.SI.Time storedResponse[3](each start=-1,each fixed=true);
+    Boolean responseEligible[3]
+      "Inside response qualified by the same effectiveActive used for all E evidence";
   initial equation
     pre(trigger)=trigger;
-    for i in 1:3 loop pre(evidence.currentInside[i])=evidence.currentInside[i]; end for;
+    for i in 1:3 loop pre(responseEligible[i])=responseEligible[i]; end for;
   equation
     candidate.parameterValid=min(maxResponseDuration)>=0 and maxResponseDuration[1]<=maxResponseDuration[2] and maxResponseDuration[2]<=maxResponseDuration[3];
     candidate.semanticEvidenceAvailable=triggerSeen;
@@ -551,20 +579,21 @@ package Evaluation "Fine-grained temporal implementation behind public E blocks"
     candidate.triggerTime=storedTrigger;
     candidate.responseTime=storedResponse;
     for i in 1:3 loop
+      responseEligible[i]=evidence.currentEffectiveActive and evidence.currentInside[i];
       candidate.responseDuration[i]=if storedTrigger>=0 and storedResponse[i]>=0 then storedResponse[i]-storedTrigger else -1;
       candidate.pass[i]=triggerSeen and candidate.responseDuration[i]>=0 and candidate.responseDuration[i]<=maxResponseDuration[i];
     end for;
   algorithm
-    when {initial(),edge(trigger),change(evidence.currentInside[1]),change(evidence.currentInside[2]),change(evidence.currentInside[3])} then
+    when {initial(),edge(trigger),change(responseEligible[1]),change(responseEligible[2]),change(responseEligible[3])} then
       if initial() then
         triggerSeen:=trigger;
         storedTrigger:=if trigger then time else -1;
-        for i in 1:3 loop storedResponse[i]:=if trigger and evidence.currentInside[i] then time else -1; end for;
+        for i in 1:3 loop storedResponse[i]:=if trigger and responseEligible[i] then time else -1; end for;
       else
         triggerSeen:=pre(triggerSeen) or edge(trigger);
         storedTrigger:=if edge(trigger) and not pre(triggerSeen) then time else pre(storedTrigger);
         for i in 1:3 loop
-          storedResponse[i]:=if edge(trigger) and not pre(triggerSeen) and evidence.currentInside[i] then time else if pre(triggerSeen) and evidence.currentInside[i] and not pre(evidence.currentInside[i]) and pre(storedResponse[i])<0 then time else pre(storedResponse[i]);
+          storedResponse[i]:=if pre(storedResponse[i])<0 and responseEligible[i] and (pre(triggerSeen) or (edge(trigger) and not pre(triggerSeen))) then time else pre(storedResponse[i]);
         end for;
       end if;
     end when;
